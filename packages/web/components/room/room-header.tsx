@@ -1,12 +1,14 @@
 "use client";
 
-import { MenuIcon, PanelIcon } from "../icons";
+import { MenuIcon, PanelIcon, PlusIcon } from "../icons";
 
 interface Props {
   name: string;
   topic: string;
   membersOpen: boolean;
+  newThreadArmed: boolean;
   onToggleMembers: () => void;
+  onNewThread: () => void;
   onOpenNav: () => void;
 }
 
@@ -14,7 +16,9 @@ export const RoomHeader = ({
   name,
   topic,
   membersOpen,
+  newThreadArmed,
   onToggleMembers,
+  onNewThread,
   onOpenNav,
 }: Props) => (
   <header className="bg-chat/95 flex h-12 shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 backdrop-blur">
@@ -39,6 +43,19 @@ export const RoomHeader = ({
     </span>
 
     <div className="text-ink-dim flex shrink-0 items-center gap-0.5">
+      <button
+        onClick={onNewThread}
+        aria-label="Start new thread"
+        aria-pressed={newThreadArmed}
+        title="Next message starts a new thread"
+        className={`rounded p-2 transition ${
+          newThreadArmed
+            ? "bg-blurple-soft text-[#8b9bff]"
+            : "hover:text-ink hover:bg-white/5"
+        }`}
+      >
+        <PlusIcon />
+      </button>
       <button
         onClick={onToggleMembers}
         aria-label="Toggle members"

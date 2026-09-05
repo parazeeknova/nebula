@@ -18,6 +18,7 @@ interface Props {
   collapsed: boolean;
   onlineCounts: Record<string, number>;
   onSelect: (roomId: bigint) => void;
+  onCreateRoom: () => void;
   onToggleCollapse: () => void;
   onCloseMobile?: () => void;
 }
@@ -38,6 +39,7 @@ export const Sidebar = ({
   collapsed,
   onlineCounts,
   onSelect,
+  onCreateRoom,
   onToggleCollapse,
 }: Props) => {
   const width = collapsed ? "w-[68px]" : "w-60";
@@ -75,6 +77,7 @@ export const Sidebar = ({
               className="text-ink-faint hover:text-ink rounded p-1 transition hover:bg-white/5"
               aria-label="Create room"
               title="Create room"
+              onClick={onCreateRoom}
             >
               <PlusIcon className="h-3.5 w-3.5" />
             </button>

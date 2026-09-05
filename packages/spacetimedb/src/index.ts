@@ -6,19 +6,6 @@ import { buildSnapshotPayload } from "./lib/memory";
 import { mergeReady } from "./lib/merging";
 import { assertNonEmpty } from "./lib/routing";
 
-// ─────────────────────────────────────────────────────────────
-// Status codes (u8). Documented here so UI + worker share them.
-// thread.status:      0=open 1=streaming 2=merged 3=closed
-// message.role:       0=user 1=agent 2=synthesis 3=system
-// ai_job.status:      0=queued 1=running 2=done 3=failed
-// tool_call.status:   0=pending 1=running 2=done 3=failed
-// merge_session.status: 0=detected 1=streaming 2=merged
-// exploration.status: 0=pending 1=streaming 2=done 3=failed
-// room.status:        0=active 1=archived
-// ─────────────────────────────────────────────────────────────
-
-// NOTE: table is named app_user (not `user`) so `SELECT * FROM app_user`
-// never collides with the SQL reserved word.
 const app_user = table(
   { name: "app_user", public: true },
   {

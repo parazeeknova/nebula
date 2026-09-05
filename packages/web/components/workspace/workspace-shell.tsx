@@ -1,15 +1,20 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSpacetimeDB } from "spacetimedb/react";
 
-import { mockSource } from "@/lib/room-adapter";
+import {
+  useCreateRoom,
+  useLiveRooms,
+  usePresenceCounts,
+  useWorkspace,
+} from "@/lib/live";
 
 import { RoomView } from "../room/room-view";
 import { ChromeTabs } from "./chrome-tabs";
 import { Sidebar } from "./sidebar";
 
-const EmptyCanvas = () => (
+const EmptyCanvas = ({ onCreate }: { onCreate: () => void }) => (
   <div className="grid h-full place-items-center px-6">
     <div className="max-w-sm text-center">
       <div className="bg-blurple-soft mx-auto grid h-16 w-16 place-items-center rounded-2xl text-2xl font-bold text-[#8b9bff]">
@@ -19,36 +24,66 @@ const EmptyCanvas = () => (
         No rooms yet
       </h2>
       <p className="text-ink-dim mt-2 text-[14px] leading-relaxed">
-        Select or create a room to start a shared brain for your team.
+        Create a room to start a shared brain for your team.
       </p>
+      <button
+        onClick={onCreate}
+        className="bg-blurple hover:bg-blurple-deep mt-4 rounded-lg px-4 py-2 text-[14px] font-bold text-white shadow-[0_4px_14px_rgba(88,101,242,0.55)] transition"
+      >
+        Create a room
+      </button>
     </div>
   </div>
 );
 
 export const WorkspaceShell = () => {
   const { isActive: connected } = useSpacetimeDB();
-  const rooms = useMemo(() => mockSource.listRooms(), []);
+  const { workspace, ready: wsReady } = useWorkspace();
+  const { rooms, ready: roomsReady } = useLiveRooms();
+  const onlineCounts = usePresenceCounts();
+  const createRoom = useCreateRoom();
+  const ready = connected && wsReady && roomsReady;
 
-  const [openRoomIds, setOpenRoomIds] = useState<bigint[]>([1n, 3n, 2n]);
-  const [activeRoomId, setActiveRoomId] = useState<bigint>(1n);
+  const [openRoomIds, setOpenRoomIds] = useState<bigint[]>([]);
+  const [activeRoomId, setActiveRoomId] = useState<bigint | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  const pendingSelect = useRef(false);
 
-  const openRooms = useMemo(
-    () =>
-      openRoomIds
-        .map((id) => rooms.find((r) => r.roomId === id))
-        .filter((r): r is NonNullable<typeof r> => Boolean(r)),
-    [openRoomIds, rooms]
-  );
-
-  const onlineCounts = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const r of rooms) {
-      m[String(r.roomId)] = mockSource.onlineCount(r.roomId);
+  // Open the first room once the list loads.
+  useEffect(() => {
+    if (activeRoomId !== null || rooms.length === 0) {
+      return;
     }
-    return m;
+    const [first] = rooms;
+    if (first) {
+      setOpenRoomIds([first.roomId]);
+      setActiveRoomId(first.roomId);
+    }
+  }, [rooms, activeRoomId]);
+
+  // Jump to a freshly created room once it arrives over the subscription.
+  useEffect(() => {
+    if (!pendingSelect.current || rooms.length === 0) {
+      return;
+    }
+    pendingSelect.current = false;
+    const [firstRoom] = rooms;
+    let newest = firstRoom;
+    for (const r of rooms) {
+      if (!newest || r.roomId > newest.roomId) {
+        newest = r;
+      }
+    }
+    if (!newest) {
+      return;
+    }
+    const id = newest.roomId;
+    setOpenRoomIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setActiveRoomId(id);
   }, [rooms]);
+
+  const openRooms = rooms.filter((r) => openRoomIds.includes(r.roomId));
 
   const select = useCallback((roomId: bigint) => {
     setOpenRoomIds((prev) =>
@@ -56,8 +91,6 @@ export const WorkspaceShell = () => {
     );
     setActiveRoomId(roomId);
     setMobileNav(false);
-    mockSource.joinRoom(roomId);
-    mockSource.heartbeat(roomId);
   }, []);
 
   const close = useCallback(
@@ -79,24 +112,28 @@ export const WorkspaceShell = () => {
     [activeRoomId]
   );
 
-  const openNext = useCallback(() => {
-    const unopened = rooms.find((r) => !openRoomIds.includes(r.roomId));
-    if (unopened) {
-      select(unopened.roomId);
+  const handleCreate = useCallback(() => {
+    if (!workspace) {
+      return;
     }
-  }, [rooms, openRoomIds, select]);
+    pendingSelect.current = true;
+    createRoom(workspace.workspaceId, `Room ${rooms.length + 1}`);
+  }, [workspace, rooms.length, createRoom]);
 
-  const activeRoom = rooms.find((r) => r.roomId === activeRoomId) ?? rooms[0];
+  const activeRoom =
+    activeRoomId === null
+      ? undefined
+      : rooms.find((r) => r.roomId === activeRoomId);
 
   return (
     <div className="bg-abyss text-ink flex h-dvh flex-col overflow-hidden">
       <ChromeTabs
         openRooms={openRooms}
-        activeRoomId={activeRoomId}
+        activeRoomId={activeRoomId ?? 0n}
         connected={connected}
         onActivate={select}
         onClose={close}
-        onNew={openNext}
+        onNew={handleCreate}
       />
 
       <div className="relative flex min-h-0 flex-1">
@@ -104,11 +141,12 @@ export const WorkspaceShell = () => {
         <div className="hidden shrink-0 md:flex">
           <Sidebar
             rooms={rooms}
-            activeRoomId={activeRoomId}
+            activeRoomId={activeRoomId ?? 0n}
             openRoomIds={openRoomIds}
             collapsed={collapsed}
             onlineCounts={onlineCounts}
             onSelect={select}
+            onCreateRoom={handleCreate}
             onToggleCollapse={() => setCollapsed((c) => !c)}
           />
         </div>
@@ -122,11 +160,12 @@ export const WorkspaceShell = () => {
             />
             <Sidebar
               rooms={rooms}
-              activeRoomId={activeRoomId}
+              activeRoomId={activeRoomId ?? 0n}
               openRoomIds={openRoomIds}
               collapsed={false}
               onlineCounts={onlineCounts}
               onSelect={select}
+              onCreateRoom={handleCreate}
               onToggleCollapse={() => setCollapsed((c) => !c)}
               onCloseMobile={() => setMobileNav(false)}
             />
@@ -146,10 +185,11 @@ export const WorkspaceShell = () => {
             <RoomView
               key={String(activeRoom.roomId)}
               roomId={activeRoom.roomId}
+              ready={ready}
               onOpenNav={() => setMobileNav(true)}
             />
           ) : (
-            <EmptyCanvas />
+            <EmptyCanvas onCreate={handleCreate} />
           )}
         </main>
       </div>

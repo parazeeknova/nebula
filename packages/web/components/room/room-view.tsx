@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSpacetimeDB } from "spacetimedb/react";
 
-import { mockSource } from "@/lib/room-adapter";
-import type { ChatMessage } from "@/lib/room-types";
+import {
+  useRoomData,
+  useRoomPresence,
+  useSendMessage,
+  useStreamTicks,
+} from "@/lib/live";
 
 import { Composer } from "./composer";
 import { MembersPanel } from "./members-panel";
@@ -15,53 +19,58 @@ import { RoomHeader } from "./room-header";
 
 export const RoomView = ({
   roomId,
+  ready,
   onOpenNav,
 }: {
   roomId: bigint;
+  ready: boolean;
   onOpenNav: () => void;
 }) => {
   const { isActive: connected } = useSpacetimeDB();
-  const room = mockSource.getRoom(roomId);
-  const thread = mockSource.getThread(roomId);
-
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    mockSource.getMessages(roomId)
+  const ticks = useStreamTicks();
+  const data = useRoomData(roomId, ticks);
+  const { send, armNewThread, newThreadArmed } = useSendMessage(
+    roomId,
+    data.thread
   );
-  const [membersOpen, setMembersOpen] = useState(true);
-  const [ready, setReady] = useState(false);
+  useRoomPresence(roomId, connected && ready);
 
-  // Show skeleton placeholders until the connection is live —
+  const [membersOpen, setMembersOpen] = useState(true);
+  const [fallback, setFallback] = useState(false);
+
+  // Show skeleton placeholders until the subscription is live —
   // with a fallback timeout so a dead backend never traps the UI.
   useEffect(() => {
-    if (connected) {
-      setReady(true);
+    if (ready) {
+      setFallback(true);
       return;
     }
-    const t = setTimeout(() => setReady(true), 2500);
-    return () => clearTimeout(t);
-  }, [connected]);
+    const t = setTimeout(() => setFallback(true), 2500);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [ready]);
 
-  const agents = useMemo(() => mockSource.getAgents(roomId), [roomId]);
-  const humans = useMemo(() => mockSource.getHumans(roomId), [roomId]);
+  const shown = ready || fallback;
+  const { room } = data;
 
   if (!room) {
+    if (!shown) {
+      return (
+        <div className="flex h-full min-h-0">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <ChatSkeleton roomName="Room" />
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
-  const typingNames = humans
+  const typingNames = data.humans
     .filter((h) => h.isTyping)
     .map((h) => h.displayName.split(" ")[0] ?? h.displayName);
-  const hasStreaming = messages.some((m) => m.streaming);
-
-  const send = (body: string, mentions: bigint[]) => {
-    const msg = mockSource.sendMessage({
-      body,
-      mentions,
-      roomId,
-      threadId: thread.threadId,
-    });
-    setMessages((prev) => [...prev, msg]);
-  };
+  const [activeMerge] = data.merges;
 
   return (
     <div className="flex h-full min-h-0">
@@ -70,16 +79,20 @@ export const RoomView = ({
           name={room.name}
           topic={room.topic}
           membersOpen={membersOpen}
+          newThreadArmed={newThreadArmed}
           onToggleMembers={() => setMembersOpen((v) => !v)}
+          onNewThread={armNewThread}
           onOpenNav={onOpenNav}
         />
 
-        {hasStreaming && ready && <MergeBanner roomName={room.name} />}
+        {activeMerge && shown && (
+          <MergeBanner roomName={room.name} angles={activeMerge.angles} />
+        )}
 
-        {ready ? (
+        {shown ? (
           <MessageList
-            messages={messages}
-            agents={agents}
+            messages={data.messages}
+            agents={data.agents}
             roomName={room.name}
           />
         ) : (
@@ -87,8 +100,8 @@ export const RoomView = ({
         )}
 
         <Composer
-          agents={agents}
-          humans={humans}
+          agents={data.agents}
+          humans={data.humans}
           typingNames={typingNames}
           connected={connected}
           onSend={send}
@@ -97,8 +110,12 @@ export const RoomView = ({
 
       <div className={`${membersOpen ? "max-lg:hidden" : "hidden"} shrink-0`}>
         <div className="h-full">
-          {ready ? (
-            <MembersPanel agents={agents} humans={humans} />
+          {shown ? (
+            <MembersPanel
+              agents={data.agents}
+              humans={data.humans}
+              memory={data.memory}
+            />
           ) : (
             <PeopleSkeleton />
           )}
