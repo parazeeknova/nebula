@@ -22,7 +22,7 @@ const StreamingTail = () => (
     {[0, 1, 2].map((i) => (
       <span
         key={i}
-        className="animate-typing bg-ink-faint h-1.5 w-1.5 rounded-full"
+        className="animate-typing bg-ink-faint h-1.5 w-1.5"
         style={{ animationDelay: `${i * 0.18}s` }}
       />
     ))}
@@ -41,7 +41,7 @@ const renderBody = (body: string, agents: Agent[]) => {
     return (
       <span
         key={i}
-        className={`rounded px-1 py-px font-semibold ${
+        className={`px-1 py-px font-semibold ${
           known
             ? "bg-blurple-soft ring-blurple/30 hover:bg-blurple/30 text-[#c3cbff] ring-1"
             : "text-ink bg-white/10"
@@ -80,7 +80,7 @@ const SynthesisMessage = ({
   agents: Agent[];
 }) => (
   <div className="msg-row px-4 py-2">
-    <div className="border-gold/25 from-gold/[0.08] overflow-hidden rounded-xl border bg-gradient-to-br to-transparent">
+    <div className="border-gold/25 from-gold/[0.08] overflow-hidden border bg-gradient-to-br to-transparent">
       <div className="border-gold/15 flex items-center gap-2 border-b px-4 py-2">
         <SparkleIcon className="text-gold h-4 w-4" />
         <span className="text-gold font-mono text-[11px] font-bold tracking-[0.12em] uppercase">
@@ -112,7 +112,7 @@ const ThreadFooterButton = ({ info }: { info: ThreadFooterInfo }) => (
         e.stopPropagation();
         info.onOpen();
       }}
-      className="text-ink-dim inline-flex items-center gap-2 rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-[12px] font-medium ring-1 ring-white/[0.08] transition hover:bg-white/[0.08] hover:text-white"
+      className="text-ink-dim inline-flex items-center gap-2 bg-white/[0.04] px-2.5 py-1.5 text-[12px] font-medium ring-1 ring-white/[0.08] transition hover:bg-white/[0.08] hover:text-white"
       aria-label={`View thread with ${info.replyCount} replies`}
     >
       <span className="text-blurple text-[13px]">💬</span>
@@ -129,7 +129,7 @@ const ThreadFooterButton = ({ info }: { info: ThreadFooterInfo }) => (
       )}
       {info.streaming && (
         <span className="flex items-center gap-1 font-mono text-[11px] font-semibold text-[#8b9bff]">
-          <span className="animate-pulse-dot bg-blurple h-1.5 w-1.5 rounded-full" />
+          <span className="animate-pulse-dot bg-blurple h-1.5 w-1.5" />
           streaming
         </span>
       )}
@@ -189,16 +189,16 @@ export const MessageItem = ({
             {msg.authorName}
           </span>
           {isAgent && (
-            <span className="bg-blurple rounded px-1.5 py-px text-[10px] font-extrabold tracking-wide text-white">
+            <span className="bg-blurple px-1.5 py-px text-[10px] font-extrabold tracking-wide text-white">
               BOT
             </span>
           )}
           {msg.toolCall && (
             <span
-              className={`rounded-full px-2 py-px font-mono text-[10px] font-semibold ring-1 ${TOOL_STYLE[msg.toolCall.status] ?? TOOL_STYLE[0]}`}
+              className={`px-2 py-px font-mono text-[10px] font-semibold ring-1 ${TOOL_STYLE[msg.toolCall.status] ?? TOOL_STYLE[0]}`}
             >
               {msg.toolCall.status === 1 && (
-                <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+                <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse bg-current" />
               )}
               {msg.toolCall.tool} ·{" "}
               {TOOL_LABEL[msg.toolCall.status] ?? "pending"}
@@ -223,10 +223,7 @@ export const MessageItem = ({
         </p>
 
         {msg.streaming && (
-          <div
-            className="stream-shimmer mt-2 h-[3px] w-48 rounded-full"
-            aria-hidden
-          />
+          <div className="stream-shimmer mt-2 h-[3px] w-48" aria-hidden />
         )}
 
         {threadFooter && <ThreadFooterButton info={threadFooter} />}

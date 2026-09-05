@@ -7,7 +7,7 @@
  * when content swaps in.
  */
 
-const bone = "animate-pulse rounded bg-white/[0.07]";
+const bone = "animate-pulse bg-white/[0.07]";
 
 const ChatRow = ({
   w1,
@@ -27,7 +27,7 @@ const ChatRow = ({
   }
   return (
     <div className="flex gap-3 px-4 pt-4 pb-1">
-      <div className={`${bone} h-10 w-10 shrink-0 !rounded-full`} />
+      <div className={`${bone} h-10 w-10 shrink-0`} />
       <div className="min-w-0 flex-1 space-y-2 pt-0.5">
         <div className="flex items-center gap-2">
           <div className={`${bone} h-3.5 w-24`} />
@@ -48,7 +48,7 @@ export const ChatSkeleton = ({ roomName }: { roomName: string }) => (
     aria-label="Loading messages"
   >
     <div className="px-4 pt-6 pb-4">
-      <div className="bg-panel h-16 w-16 animate-pulse rounded-2xl ring-1 ring-white/10" />
+      <div className="bg-panel h-16 w-16 animate-pulse ring-1 ring-white/10" />
       <div className={`${bone} mt-3 h-7 w-56`} />
       <div className={`${bone} mt-2 h-4 w-80 max-w-full`} />
     </div>
@@ -63,8 +63,8 @@ export const ChatSkeleton = ({ roomName }: { roomName: string }) => (
 );
 
 const PersonRow = () => (
-  <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-    <div className={`${bone} h-8 w-8 shrink-0 !rounded-full`} />
+  <div className="flex items-center gap-2.5 px-2 py-1.5">
+    <div className={`${bone} h-8 w-8 shrink-0`} />
     <div className="min-w-0 flex-1 space-y-1.5">
       <div className={`${bone} h-3 w-3/4`} />
       <div className={`${bone} h-2.5 w-1/2`} />
@@ -109,11 +109,11 @@ export const CanvasSkeleton = () => (
     aria-label="Loading workspace"
   >
     <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-3">
-      <div className={`${bone} h-7 w-7 !rounded-lg`} />
+      <div className={`${bone} h-7 w-7`} />
       <div className={`${bone} h-4 w-40`} />
     </div>
     <div className="min-h-0 flex-1 overflow-hidden px-4 pt-6 pb-4">
-      <div className="bg-panel h-16 w-16 animate-pulse rounded-2xl ring-1 ring-white/10" />
+      <div className="bg-panel h-16 w-16 animate-pulse ring-1 ring-white/10" />
       <div className={`${bone} mt-3 h-7 w-56`} />
       <div className={`${bone} mt-2 h-4 w-80 max-w-full`} />
       <ChatRow w1="92%" w2="64%" />

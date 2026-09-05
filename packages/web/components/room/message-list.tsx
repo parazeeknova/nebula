@@ -39,7 +39,7 @@ const ThreadDivider = ({
     <span className="max-w-full truncate text-[13px] font-semibold text-white">
       {title}
     </span>
-    <span className="bg-blurple-soft rounded px-1.5 py-px font-mono text-[10px] font-bold tracking-[0.1em] text-[#c3cbff] uppercase">
+    <span className="bg-blurple-soft px-1.5 py-px font-mono text-[10px] font-bold tracking-[0.1em] text-[#c3cbff] uppercase">
       {threadLabel(status)}
     </span>
     <span className="text-ink-ghost font-mono text-[10px]">
@@ -117,7 +117,7 @@ export const MessageList = ({
     >
       {/* room intro */}
       <div className="px-4 pt-6 pb-4">
-        <div className="from-blurple font-display shadow-pop grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br to-[#8b5cf6] text-3xl font-bold text-white ring-1 ring-white/10">
+        <div className="from-blurple font-display shadow-pop grid h-16 w-16 place-items-center bg-gradient-to-br to-[#8b5cf6] text-3xl font-bold text-white ring-1 ring-white/10">
           {roomName.slice(0, 1).toUpperCase()}
         </div>
         <h2 className="font-display mt-3 text-2xl font-bold tracking-tight text-white">
@@ -125,19 +125,19 @@ export const MessageList = ({
         </h2>
         <p className="text-ink-dim mt-1 max-w-xl text-[14px] leading-relaxed">
           One shared brain per room —{" "}
-          <span className="bg-blurple-soft rounded px-1 font-semibold text-[#c3cbff]">
+          <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
             @neb
           </span>{" "}
           routes,{" "}
-          <span className="bg-blurple-soft rounded px-1 font-semibold text-[#c3cbff]">
+          <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
             @researcher
           </span>{" "}
           searches,{" "}
-          <span className="bg-blurple-soft rounded px-1 font-semibold text-[#c3cbff]">
+          <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
             @marketing
           </span>{" "}
           analyzes,{" "}
-          <span className="bg-blurple-soft rounded px-1 font-semibold text-[#c3cbff]">
+          <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
             @evaluator
           </span>{" "}
           decides. Memory compounds across every thread.

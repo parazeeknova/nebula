@@ -59,7 +59,7 @@ export const ThreadPane = ({
         <div className="flex min-w-0 items-center gap-2">
           <button
             onClick={onClose}
-            className="text-ink-dim hover:text-ink -ml-1 rounded p-1.5 transition hover:bg-white/5 lg:hidden"
+            className="text-ink-dim hover:text-ink -ml-1 p-1.5 transition hover:bg-white/5 lg:hidden"
             aria-label="Back to main chat"
           >
             <ChevronLeftIcon className="h-4 w-4" />
@@ -67,11 +67,11 @@ export const ThreadPane = ({
           <span className="font-display truncate text-[14px] font-bold text-white">
             # {thread?.title || "Thread"}
           </span>
-          <span className="bg-blurple h-1.5 w-1.5 shrink-0 rounded-full shadow-[0_0_6px_rgba(88,101,242,0.8)]" />
+          <span className="bg-blurple h-1.5 w-1.5 shrink-0 shadow-[0_0_6px_rgba(88,101,242,0.8)]" />
         </div>
         <button
           onClick={onClose}
-          className="text-ink-dim hover:text-ink rounded p-1.5 transition hover:bg-white/5"
+          className="text-ink-dim hover:text-ink p-1.5 transition hover:bg-white/5"
           aria-label="Close thread"
         >
           <XIcon className="h-4 w-4" />
@@ -79,10 +79,10 @@ export const ThreadPane = ({
       </div>
 
       {/* body */}
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {/* origin user prompt */}
         {originMessage && (
-          <div className="bg-panel rounded-xl border border-white/[0.08] p-3.5 shadow-sm">
+          <div className="bg-panel border border-white/[0.08] p-3 shadow-sm">
             <div className="flex items-center gap-2.5">
               <Avatar
                 name={originMessage.authorName}
@@ -112,10 +112,10 @@ export const ThreadPane = ({
         )}
 
         {/* agent work tabs */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-ink-faint font-mono text-[10px] font-semibold tracking-[0.14em] uppercase">
-              Agent Work — {agentWork.length}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-0.5 pb-0.5">
+            <span className="text-ink-faint font-mono text-[9.5px] font-semibold tracking-[0.14em] uppercase">
+              Agents — {agentWork.length}
             </span>
           </div>
           {agentWork.map((work) => (

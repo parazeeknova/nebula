@@ -112,7 +112,7 @@ export const Composer = ({
             {[0, 1, 2].map((i) => (
               <span
                 key={i}
-                className="animate-typing bg-ink-faint h-1 w-1 rounded-full"
+                className="animate-typing bg-ink-faint h-1 w-1"
                 style={{ animationDelay: `${i * 0.15}s` }}
               />
             ))}
@@ -126,7 +126,7 @@ export const Composer = ({
 
       <div className="relative">
         {mentionOpen && candidates.length > 0 && (
-          <div className="bg-panel-2 shadow-pop absolute inset-x-0 bottom-full z-20 mb-2 overflow-hidden rounded-xl border border-white/10">
+          <div className="bg-panel-2 shadow-pop absolute inset-x-0 bottom-full z-20 mb-2 overflow-hidden border border-white/10">
             <p className="text-ink-faint border-b border-white/[0.06] px-3 py-2 font-mono text-[10px] font-bold tracking-[0.12em] uppercase">
               Mention — agents first
             </p>
@@ -141,7 +141,7 @@ export const Composer = ({
                           : (c.label.split(" ")[0] ?? c.label)
                       )
                     }
-                    className="hover:bg-blurple/15 flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition"
+                    className="hover:bg-blurple/15 flex w-full items-center gap-2.5 px-2 py-1.5 text-left transition"
                   >
                     <Avatar
                       name={c.label}
@@ -153,7 +153,7 @@ export const Composer = ({
                       <span className="text-ink flex items-center gap-1.5 text-[13px] font-bold">
                         @{c.label}
                         {c.kind === "agent" && (
-                          <span className="bg-blurple rounded px-1 py-px text-[9px] font-extrabold text-white">
+                          <span className="bg-blurple px-1 py-px text-[9px] font-extrabold text-white">
                             BOT
                           </span>
                         )}
@@ -171,7 +171,7 @@ export const Composer = ({
 
         <form
           onSubmit={submit}
-          className={`bg-input flex items-end gap-2 rounded-xl px-3 py-2.5 ring-1 transition ${
+          className={`bg-input flex items-end gap-2 px-3 py-2.5 ring-1 transition ${
             mentionOpen
               ? "ring-blurple/60"
               : "focus-within:ring-blurple/50 ring-white/10"
@@ -180,7 +180,7 @@ export const Composer = ({
           <button
             type="button"
             aria-label="Attach"
-            className="text-ink-dim hover:text-ink mb-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[0.06] transition hover:bg-white/10"
+            className="text-ink-dim hover:text-ink mb-0.5 grid h-8 w-8 shrink-0 place-items-center bg-white/[0.06] transition hover:bg-white/10"
           >
             <PlusIcon />
           </button>
@@ -213,7 +213,7 @@ export const Composer = ({
             type="submit"
             disabled={!value.trim() || !connected}
             aria-label={variant === "thread" ? "Send steer" : "Send message"}
-            className={`mb-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full transition-all ${
+            className={`mb-0.5 grid h-8 w-8 shrink-0 place-items-center transition-all ${
               value.trim() && connected
                 ? "bg-blurple hover:bg-blurple-deep text-white shadow-[0_4px_14px_rgba(88,101,242,0.55)]"
                 : "text-ink-ghost bg-white/[0.06]"

@@ -32,15 +32,15 @@ const presenceDot = (presence: string): string => {
 
 const AgentCard = ({ agent }: { agent: Agent }) => (
   <div
-    className="group flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-2 transition hover:bg-white/[0.05]"
+    className="group flex cursor-pointer items-start gap-2.5 px-2 py-2 transition hover:bg-white/[0.05]"
     title={agent.systemPrompt}
   >
     <span className="relative shrink-0">
-      <span className="text-ink-dim group-hover:text-ink grid h-9 w-9 place-items-center rounded-full bg-[#26292f] ring-1 ring-white/10 transition group-hover:ring-white/20">
+      <span className="text-ink-dim group-hover:text-ink grid h-9 w-9 place-items-center bg-[#26292f] ring-1 ring-white/10 transition group-hover:ring-white/20">
         <BotIcon className="h-4 w-4" />
       </span>
       <span
-        className={`border-panel absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-[2.5px] ${presenceDot(agent.presence)}`}
+        className={`border-panel absolute -right-0.5 -bottom-0.5 h-3 w-3 border-[2.5px] ${presenceDot(agent.presence)}`}
       />
     </span>
     <span className="min-w-0 flex-1 leading-tight">
@@ -65,7 +65,7 @@ const AgentCard = ({ agent }: { agent: Agent }) => (
         ).map((t) => (
           <span
             key={t}
-            className={`rounded px-1.5 py-px font-mono text-[10px] ring-1 ${
+            className={`px-1.5 py-px font-mono text-[10px] ring-1 ${
               t === agent.currentTool
                 ? "bg-gold/10 text-gold ring-gold/30"
                 : "text-ink-faint bg-white/5 ring-white/10"
@@ -117,7 +117,7 @@ export const MembersPanel = ({
         {online.map((h) => (
           <div
             key={h.hex}
-            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition hover:bg-white/[0.05]"
+            className="flex cursor-pointer items-center gap-2.5 px-2 py-1.5 transition hover:bg-white/[0.05]"
           >
             <Avatar name={h.displayName} color={h.color} size={32} online />
             <span className="min-w-0 flex-1 leading-tight">
@@ -135,7 +135,7 @@ export const MembersPanel = ({
                 {[0, 1, 2].map((i) => (
                   <span
                     key={i}
-                    className="animate-typing bg-ink-faint h-1 w-1 rounded-full"
+                    className="animate-typing bg-ink-faint h-1 w-1"
                     style={{ animationDelay: `${i * 0.15}s` }}
                   />
                 ))}
@@ -151,7 +151,7 @@ export const MembersPanel = ({
             {memory.latest.map((fact) => (
               <li
                 key={fact.slice(0, 48)}
-                className="text-ink-faint line-clamp-2 rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-[11px] leading-relaxed ring-1 ring-white/[0.06]"
+                className="text-ink-faint line-clamp-2 bg-white/[0.04] px-2.5 py-1.5 text-[11px] leading-relaxed ring-1 ring-white/[0.06]"
               >
                 {fact}
               </li>
