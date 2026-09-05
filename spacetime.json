@@ -2,7 +2,7 @@
   "dev": {
     "run": "bun run dev"
   },
-  "database": "neb",
+  "database": "nebula",
   "module-path": "./packages/spacetimedb",
   "server": "maincloud"
 }

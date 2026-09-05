@@ -7,7 +7,8 @@
     "build": "spacetime build",
     "publish": "spacetime publish",
     "publish:local": "spacetime publish --server local",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "spacetimedb": "2.10.0"

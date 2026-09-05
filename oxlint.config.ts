@@ -13,7 +13,21 @@ export default defineConfig({
   ],
   overrides: [
     {
-      files: ["packages/api/src/db.ts"],
+      files: ["packages/spacetimedb/src/index.ts"],
+      rules: {
+        // Index `.filter()` returns an iterator, so spreading into an array
+        // before using `.length`/indexing/`.map()` is required, not useless.
+        "unicorn/no-useless-spread": "off",
+        // SpacetimeDB PK/index accessors use `.find()` for row lookup —
+        // not Array.prototype.find, so the unicorn rule is a false positive.
+        "unicorn/prefer-array-some": "off",
+      },
+    },
+    {
+      files: [
+        "packages/web/lib/spacetimedb-server.ts",
+        "packages/api/src/db.ts",
+      ],
       rules: {
         "promise/avoid-new": "off",
       },

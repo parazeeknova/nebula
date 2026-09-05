@@ -1,0 +1,210 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSpacetimeDB } from "spacetimedb/react";
+
+import {
+  useCreateRoom,
+  useLiveRooms,
+  useMyProfile,
+  usePresenceCounts,
+  useWorkspace,
+  useWorkspaceMemory,
+} from "@/lib/live";
+
+import { RoomView } from "../room/room-view";
+import { ChromeTabs } from "./chrome-tabs";
+import { Sidebar } from "./sidebar";
+
+const EmptyCanvas = ({ onCreate }: { onCreate: () => void }) => (
+  <div className="grid h-full place-items-center px-6">
+    <div className="max-w-sm text-center">
+      <div className="bg-blurple-soft mx-auto grid h-16 w-16 place-items-center rounded-2xl text-2xl font-bold text-[#8b9bff]">
+        N
+      </div>
+      <h2 className="font-display mt-4 text-xl font-bold text-white">
+        No rooms yet
+      </h2>
+      <p className="text-ink-dim mt-2 text-[14px] leading-relaxed">
+        Create a room to start a shared brain for your team.
+      </p>
+      <button
+        onClick={onCreate}
+        className="bg-blurple hover:bg-blurple-deep mt-4 rounded-lg px-4 py-2 text-[14px] font-bold text-white shadow-[0_4px_14px_rgba(88,101,242,0.55)] transition"
+      >
+        Create a room
+      </button>
+    </div>
+  </div>
+);
+
+export const WorkspaceShell = () => {
+  const { isActive: connected } = useSpacetimeDB();
+  const { workspace, ready: wsReady } = useWorkspace();
+  const { rooms, ready: roomsReady } = useLiveRooms();
+  const onlineCounts = usePresenceCounts();
+  const createRoom = useCreateRoom();
+  const me = useMyProfile();
+  const memory = useWorkspaceMemory();
+  const ready = connected && wsReady && roomsReady;
+
+  const [openRoomIds, setOpenRoomIds] = useState<bigint[]>([]);
+  const [activeRoomId, setActiveRoomId] = useState<bigint | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileNav, setMobileNav] = useState(false);
+  const pendingSelect = useRef(false);
+
+  // Open the first room once the list loads.
+  useEffect(() => {
+    if (activeRoomId !== null || rooms.length === 0) {
+      return;
+    }
+    const [first] = rooms;
+    if (first) {
+      setOpenRoomIds([first.roomId]);
+      setActiveRoomId(first.roomId);
+    }
+  }, [rooms, activeRoomId]);
+
+  // Jump to a freshly created room once it arrives over the subscription.
+  useEffect(() => {
+    if (!pendingSelect.current || rooms.length === 0) {
+      return;
+    }
+    pendingSelect.current = false;
+    const [firstRoom] = rooms;
+    let newest = firstRoom;
+    for (const r of rooms) {
+      if (!newest || r.roomId > newest.roomId) {
+        newest = r;
+      }
+    }
+    if (!newest) {
+      return;
+    }
+    const id = newest.roomId;
+    setOpenRoomIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setActiveRoomId(id);
+  }, [rooms]);
+
+  const openRooms = rooms.filter((r) => openRoomIds.includes(r.roomId));
+
+  const select = useCallback((roomId: bigint) => {
+    setOpenRoomIds((prev) =>
+      prev.includes(roomId) ? prev : [...prev, roomId]
+    );
+    setActiveRoomId(roomId);
+    setMobileNav(false);
+  }, []);
+
+  const close = useCallback(
+    (roomId: bigint) => {
+      setOpenRoomIds((prev) => {
+        if (prev.length === 1) {
+          return prev;
+        }
+        const next = prev.filter((id) => id !== roomId);
+        if (roomId === activeRoomId) {
+          const fallback = next.at(-1);
+          if (fallback !== undefined) {
+            setActiveRoomId(fallback);
+          }
+        }
+        return next;
+      });
+    },
+    [activeRoomId]
+  );
+
+  const handleCreate = useCallback(() => {
+    if (!workspace) {
+      return;
+    }
+    pendingSelect.current = true;
+    createRoom(workspace.workspaceId, `Room ${rooms.length + 1}`);
+  }, [workspace, rooms.length, createRoom]);
+
+  const activeRoom =
+    activeRoomId === null
+      ? undefined
+      : rooms.find((r) => r.roomId === activeRoomId);
+
+  return (
+    <div className="bg-abyss text-ink flex h-dvh flex-col overflow-hidden">
+      <ChromeTabs
+        openRooms={openRooms}
+        activeRoomId={activeRoomId ?? 0n}
+        connected={connected}
+        onActivate={select}
+        onClose={close}
+        onNew={handleCreate}
+      />
+
+      <div className="relative flex min-h-0 flex-1">
+        {/* desktop sidebar */}
+        <div className="hidden shrink-0 md:flex">
+          <Sidebar
+            rooms={rooms}
+            activeRoomId={activeRoomId ?? 0n}
+            openRoomIds={openRoomIds}
+            collapsed={collapsed}
+            onlineCounts={onlineCounts}
+            me={me}
+            memoryCount={memory.count}
+            memoryFacts={memory.facts}
+            onSelect={select}
+            onCreateRoom={handleCreate}
+            onRenameMe={me.rename}
+            onToggleCollapse={() => setCollapsed((c) => !c)}
+          />
+        </div>
+
+        {/* mobile drawer */}
+        {mobileNav && (
+          <div className="absolute inset-0 z-50 md:hidden">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+              onClick={() => setMobileNav(false)}
+            />
+            <Sidebar
+              rooms={rooms}
+              activeRoomId={activeRoomId ?? 0n}
+              openRoomIds={openRoomIds}
+              collapsed={false}
+              onlineCounts={onlineCounts}
+              me={me}
+              memoryCount={memory.count}
+              memoryFacts={memory.facts}
+              onSelect={select}
+              onCreateRoom={handleCreate}
+              onRenameMe={me.rename}
+              onToggleCollapse={() => setCollapsed((c) => !c)}
+              onCloseMobile={() => setMobileNav(false)}
+            />
+          </div>
+        )}
+
+        {/* canvas — single active room fills it */}
+        <main className="grain bg-chat relative min-w-0 flex-1">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-40"
+            style={{
+              background:
+                "radial-gradient(600px 160px at 30% 0%, rgba(88,101,242,0.12), transparent 70%)",
+            }}
+          />
+          {activeRoom ? (
+            <RoomView
+              key={String(activeRoom.roomId)}
+              roomId={activeRoom.roomId}
+              ready={ready}
+              onOpenNav={() => setMobileNav(true)}
+            />
+          ) : (
+            <EmptyCanvas onCreate={handleCreate} />
+          )}
+        </main>
+      </div>
+    </div>
+  );
+};
