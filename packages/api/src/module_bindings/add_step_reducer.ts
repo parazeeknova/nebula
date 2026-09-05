@@ -10,9 +10,10 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export const Person = __t.object("Person", {
-  id: __t.u64(),
-  name: __t.string(),
-});
-export type Person = __Infer<typeof Person>;
-
+export default {
+  agent: __t.string(),
+  input: __t.string(),
+  jobId: __t.string(),
+  stepId: __t.string(),
+  stepOrder: __t.u32(),
+};

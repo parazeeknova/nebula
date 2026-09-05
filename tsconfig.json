@@ -4,7 +4,7 @@
     "noEmit": true
   },
   "references": [
-    { "path": "./packages/web" },
+    { "path": "./packages/api" },
     { "path": "./packages/spacetimedb" }
   ],
   "include": [],

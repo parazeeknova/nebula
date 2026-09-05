@@ -1,0 +1,23 @@
+{
+  "created_at": "2026-09-05T13:41:36.871Z",
+  "error": null,
+  "final_result": "{\"answer\":\"I currently have 3 specialized agents: Web Research Agent — Searches the external web using Firecrawl and returns factual research with sources. Market Analysis Agent — Analyzes products, competitors, pricing, revenue signals, market positioning and implementation. Evaluation Agent — Evaluates decisions, tradeoffs, risks, assumptions and recommendations.\"}",
+  "job_id": "cc6807ac-936e-476f-9e3e-11343d71bffb",
+  "prompt": "Tell me all the agents that you have currently available?",
+  "requested_agent": null,
+  "selected_agents": "[]",
+  "status": "completed",
+  "steps": [
+    {
+      "agent": "system",
+      "created_at": "2026-09-05T13:41:36.877Z",
+      "input": "{\"prompt\":\"Tell me all the agents that you have currently available?\"}",
+      "output": "{\"answer\":\"I currently have 3 specialized agents: Web Research Agent — Searches the external web using Firecrawl and returns factual research with sources. Market Analysis Agent — Analyzes products, competitors, pricing, revenue signals, market positioning and implementation. Evaluation Agent — Evaluates decisions, tradeoffs, risks, assumptions and recommendations.\"}",
+      "status": "completed",
+      "step_id": "e2cecddc-11ac-4149-82d0-986ae86e9fb5",
+      "step_order": 1,
+      "updated_at": "2026-09-05T13:41:36.881Z"
+    }
+  ],
+  "updated_at": "2026-09-05T13:41:36.884Z"
+}

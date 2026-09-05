@@ -7,12 +7,13 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "lerna run dev --scope @nebula/web --stream",
+    "dev": "lerna run dev --scope @nebula/api --stream",
     "build": "lerna run build --stream",
-    "start": "lerna run start --scope @nebula/web --stream",
-    "generate": "lerna run generate --scope @nebula/web --stream",
+    "start": "lerna run start --scope @nebula/api --stream",
+    "generate": "lerna run generate --scope @nebula/api --stream",
     "check": "ultracite fix",
     "check-types": "lerna run typecheck --stream",
+    "test": "lerna run test --stream",
     "prepare": "lefthook install",
     "spacetime:publish:local": "bun --filter @nebula/spacetimedb run publish:local",
     "spacetime:publish": "bun --filter @nebula/spacetimedb run publish"

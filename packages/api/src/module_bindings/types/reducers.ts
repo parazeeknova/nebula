@@ -7,8 +7,16 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
 import AddReducer from "../add_reducer";
+import AddStepReducer from "../add_step_reducer";
+import CreateJobReducer from "../create_job_reducer";
 import SayHelloReducer from "../say_hello_reducer";
+import UpdateJobReducer from "../update_job_reducer";
+import UpdateStepReducer from "../update_step_reducer";
 
 export type AddParams = __Infer<typeof AddReducer>;
+export type AddStepParams = __Infer<typeof AddStepReducer>;
+export type CreateJobParams = __Infer<typeof CreateJobReducer>;
 export type SayHelloParams = __Infer<typeof SayHelloReducer>;
+export type UpdateJobParams = __Infer<typeof UpdateJobReducer>;
+export type UpdateStepParams = __Infer<typeof UpdateStepReducer>;
 

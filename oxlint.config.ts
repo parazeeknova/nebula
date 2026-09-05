@@ -13,7 +13,7 @@ export default defineConfig({
   ],
   overrides: [
     {
-      files: ["packages/web/lib/spacetimedb-server.ts"],
+      files: ["packages/api/src/db.ts"],
       rules: {
         "promise/avoid-new": "off",
       },
