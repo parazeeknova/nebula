@@ -121,11 +121,23 @@ export const MessageList = ({
           Welcome to {roomName}
         </h2>
         <p className="text-ink-dim mt-1 max-w-xl text-[14px] leading-relaxed">
-          One shared brain per room — tag an agent with{" "}
+          One shared brain per room —{" "}
           <span className="bg-blurple-soft rounded px-1 font-semibold text-[#c3cbff]">
-            @
+            @neb
           </span>{" "}
-          or just ask. Memory compounds across every thread.
+          routes,{" "}
+          <span className="bg-blurple-soft rounded px-1 font-semibold text-[#c3cbff]">
+            @researcher
+          </span>{" "}
+          searches,{" "}
+          <span className="bg-blurple-soft rounded px-1 font-semibold text-[#c3cbff]">
+            @marketing
+          </span>{" "}
+          analyzes,{" "}
+          <span className="bg-blurple-soft rounded px-1 font-semibold text-[#c3cbff]">
+            @evaluator
+          </span>{" "}
+          decides. Memory compounds across every thread.
         </p>
       </div>
 

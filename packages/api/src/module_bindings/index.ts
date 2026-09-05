@@ -34,24 +34,84 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
-import AddReducer from "./add_reducer";
 import AddStepReducer from "./add_step_reducer";
+import AddAgentToRoomReducer from "./add_agent_to_room_reducer";
+import AppendChunkReducer from "./append_chunk_reducer";
+import ArchiveRoomReducer from "./archive_room_reducer";
+import ClaimJobReducer from "./claim_job_reducer";
+import CloseThreadReducer from "./close_thread_reducer";
+import CompleteJobReducer from "./complete_job_reducer";
 import CreateJobReducer from "./create_job_reducer";
-import SayHelloReducer from "./say_hello_reducer";
+import CreateRoomReducer from "./create_room_reducer";
+import CreateWorkspaceReducer from "./create_workspace_reducer";
+import FailJobReducer from "./fail_job_reducer";
+import GenerateSnapshotReducer from "./generate_snapshot_reducer";
+import HeartbeatReducer from "./heartbeat_reducer";
+import JoinRoomReducer from "./join_room_reducer";
+import LeaveRoomReducer from "./leave_room_reducer";
+import LinkThreadToMergeReducer from "./link_thread_to_merge_reducer";
+import LogToolCallReducer from "./log_tool_call_reducer";
+import MarkExplorationReducer from "./mark_exploration_reducer";
+import MoveRoomReducer from "./move_room_reducer";
+import OpenMergeSessionReducer from "./open_merge_session_reducer";
+import PostMessageReducer from "./post_message_reducer";
+import PublishSynthesisReducer from "./publish_synthesis_reducer";
+import PushRoomMemoryReducer from "./push_room_memory_reducer";
+import RegisterAgentReducer from "./register_agent_reducer";
+import RegisterWorkerReducer from "./register_worker_reducer";
+import RemoveAgentFromRoomReducer from "./remove_agent_from_room_reducer";
+import ResolveToolCallReducer from "./resolve_tool_call_reducer";
+import SignalEventReducer from "./signal_event_reducer";
+import StartThreadReducer from "./start_thread_reducer";
 import UpdateJobReducer from "./update_job_reducer";
 import UpdateStepReducer from "./update_step_reducer";
+import UpdateAgentReducer from "./update_agent_reducer";
+import UpdateDisplayNameReducer from "./update_display_name_reducer";
+import UpdateExplorationReducer from "./update_exploration_reducer";
 
 // Import all procedure arg schemas
 
 // Import all table schema definitions
+import ActiveRoomsRow from "./active_rooms_table";
+import AgentRow from "./agent_table";
 import AgentJobRow from "./agent_job_table";
 import AgentStepRow from "./agent_step_table";
-import PersonRow from "./person_table";
+import AiJobRow from "./ai_job_table";
+import AppUserRow from "./app_user_table";
+import ExplorationRow from "./exploration_table";
+import MergeLinkRow from "./merge_link_table";
+import MergeSessionRow from "./merge_session_table";
+import MessageRow from "./message_table";
+import MessageChunkRow from "./message_chunk_table";
+import RoomRow from "./room_table";
+import RoomAgentRow from "./room_agent_table";
+import RoomHumanRow from "./room_human_table";
+import RoomMemoryEntryRow from "./room_memory_entry_table";
+import RoomPresenceRow from "./room_presence_table";
+import StreamEventRow from "./stream_event_table";
+import ThreadRow from "./thread_table";
+import ToolCallRow from "./tool_call_table";
+import WorkspaceRow from "./workspace_table";
+import WorkspaceSnapshotRow from "./workspace_snapshot_table";
 
 /** Type-only namespace exports for generated type groups. */
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  agent: __table({
+    name: 'agent',
+    indexes: [
+      { accessor: 'agent_id', name: 'agent_agent_id_idx_btree', algorithm: 'btree', columns: [
+        'agentId',
+      ] },
+      { accessor: 'workspace_id', name: 'agent_workspace_id_idx_btree', algorithm: 'btree', columns: [
+        'workspaceId',
+      ] },
+    ],
+    constraints: [
+      { name: 'agent_agent_id_key', constraint: 'unique', columns: ['agentId'] },
+    ],
+  }, AgentRow),
   agentJob: __table({
     name: 'agent_job',
     indexes: [
@@ -77,27 +137,274 @@ const tablesSchema = __schema({
       { name: 'agent_step_step_id_key', constraint: 'unique', columns: ['stepId'] },
     ],
   }, AgentStepRow),
-  person: __table({
-    name: 'person',
+  aiJob: __table({
+    name: 'ai_job',
     indexes: [
-      { accessor: 'id', name: 'person_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
+      { accessor: 'job_id', name: 'ai_job_job_id_idx_btree', algorithm: 'btree', columns: [
+        'jobId',
+      ] },
+      { accessor: 'room_id', name: 'ai_job_room_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+      { accessor: 'thread_id', name: 'ai_job_thread_id_idx_btree', algorithm: 'btree', columns: [
+        'threadId',
       ] },
     ],
     constraints: [
-      { name: 'person_id_key', constraint: 'unique', columns: ['id'] },
+      { name: 'ai_job_job_id_key', constraint: 'unique', columns: ['jobId'] },
     ],
-  }, PersonRow),
+  }, AiJobRow),
+  appUser: __table({
+    name: 'app_user',
+    indexes: [
+      { accessor: 'identity', name: 'app_user_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'app_user_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, AppUserRow),
+  exploration: __table({
+    name: 'exploration',
+    indexes: [
+      { accessor: 'exploration_id', name: 'exploration_exploration_id_idx_btree', algorithm: 'btree', columns: [
+        'explorationId',
+      ] },
+      { accessor: 'session_id', name: 'exploration_session_id_idx_btree', algorithm: 'btree', columns: [
+        'sessionId',
+      ] },
+    ],
+    constraints: [
+      { name: 'exploration_exploration_id_key', constraint: 'unique', columns: ['explorationId'] },
+    ],
+  }, ExplorationRow),
+  mergeLink: __table({
+    name: 'merge_link',
+    indexes: [
+      { accessor: 'by_session', name: 'merge_link_session_id_thread_id_idx_btree', algorithm: 'btree', columns: [
+        'sessionId',
+        'threadId',
+      ] },
+    ],
+    constraints: [
+    ],
+  }, MergeLinkRow),
+  mergeSession: __table({
+    name: 'merge_session',
+    indexes: [
+      { accessor: 'room_id', name: 'merge_session_room_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+      { accessor: 'session_id', name: 'merge_session_session_id_idx_btree', algorithm: 'btree', columns: [
+        'sessionId',
+      ] },
+    ],
+    constraints: [
+      { name: 'merge_session_session_id_key', constraint: 'unique', columns: ['sessionId'] },
+    ],
+  }, MergeSessionRow),
+  message: __table({
+    name: 'message',
+    indexes: [
+      { accessor: 'message_id', name: 'message_message_id_idx_btree', algorithm: 'btree', columns: [
+        'messageId',
+      ] },
+      { accessor: 'room_id', name: 'message_room_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+      { accessor: 'thread_id', name: 'message_thread_id_idx_btree', algorithm: 'btree', columns: [
+        'threadId',
+      ] },
+    ],
+    constraints: [
+      { name: 'message_message_id_key', constraint: 'unique', columns: ['messageId'] },
+    ],
+  }, MessageRow),
+  messageChunk: __table({
+    name: 'message_chunk',
+    indexes: [
+      { accessor: 'chunk_id', name: 'message_chunk_chunk_id_idx_btree', algorithm: 'btree', columns: [
+        'chunkId',
+      ] },
+      { accessor: 'message_id', name: 'message_chunk_message_id_idx_btree', algorithm: 'btree', columns: [
+        'messageId',
+      ] },
+    ],
+    constraints: [
+      { name: 'message_chunk_chunk_id_key', constraint: 'unique', columns: ['chunkId'] },
+    ],
+  }, MessageChunkRow),
+  room: __table({
+    name: 'room',
+    indexes: [
+      { accessor: 'room_id', name: 'room_room_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+      { accessor: 'workspace_id', name: 'room_workspace_id_idx_btree', algorithm: 'btree', columns: [
+        'workspaceId',
+      ] },
+    ],
+    constraints: [
+      { name: 'room_room_id_key', constraint: 'unique', columns: ['roomId'] },
+    ],
+  }, RoomRow),
+  roomAgent: __table({
+    name: 'room_agent',
+    indexes: [
+      { accessor: 'by_room', name: 'room_agent_room_id_agent_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+        'agentId',
+      ] },
+    ],
+    constraints: [
+    ],
+  }, RoomAgentRow),
+  roomHuman: __table({
+    name: 'room_human',
+    indexes: [
+      { accessor: 'by_room', name: 'room_human_room_id_identity_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+        'identity',
+      ] },
+    ],
+    constraints: [
+    ],
+  }, RoomHumanRow),
+  roomMemoryEntry: __table({
+    name: 'room_memory_entry',
+    indexes: [
+      { accessor: 'memory_id', name: 'room_memory_entry_memory_id_idx_btree', algorithm: 'btree', columns: [
+        'memoryId',
+      ] },
+      { accessor: 'room_id', name: 'room_memory_entry_room_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+    ],
+    constraints: [
+      { name: 'room_memory_entry_memory_id_key', constraint: 'unique', columns: ['memoryId'] },
+    ],
+  }, RoomMemoryEntryRow),
+  roomPresence: __table({
+    name: 'room_presence',
+    indexes: [
+      { accessor: 'identity', name: 'room_presence_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'room_id', name: 'room_presence_room_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+    ],
+    constraints: [
+      { name: 'room_presence_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, RoomPresenceRow),
+  streamEvent: __table({
+    name: 'stream_event',
+    indexes: [
+    ],
+    constraints: [
+    ],
+    event: true,
+  }, StreamEventRow),
+  thread: __table({
+    name: 'thread',
+    indexes: [
+      { accessor: 'room_id', name: 'thread_room_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+      { accessor: 'thread_id', name: 'thread_thread_id_idx_btree', algorithm: 'btree', columns: [
+        'threadId',
+      ] },
+    ],
+    constraints: [
+      { name: 'thread_thread_id_key', constraint: 'unique', columns: ['threadId'] },
+    ],
+  }, ThreadRow),
+  toolCall: __table({
+    name: 'tool_call',
+    indexes: [
+      { accessor: 'call_id', name: 'tool_call_call_id_idx_btree', algorithm: 'btree', columns: [
+        'callId',
+      ] },
+      { accessor: 'job_id', name: 'tool_call_job_id_idx_btree', algorithm: 'btree', columns: [
+        'jobId',
+      ] },
+    ],
+    constraints: [
+      { name: 'tool_call_call_id_key', constraint: 'unique', columns: ['callId'] },
+    ],
+  }, ToolCallRow),
+  workspace: __table({
+    name: 'workspace',
+    indexes: [
+      { accessor: 'workspace_id', name: 'workspace_workspace_id_idx_btree', algorithm: 'btree', columns: [
+        'workspaceId',
+      ] },
+    ],
+    constraints: [
+      { name: 'workspace_workspace_id_key', constraint: 'unique', columns: ['workspaceId'] },
+    ],
+  }, WorkspaceRow),
+  workspaceSnapshot: __table({
+    name: 'workspace_snapshot',
+    indexes: [
+      { accessor: 'snapshot_id', name: 'workspace_snapshot_snapshot_id_idx_btree', algorithm: 'btree', columns: [
+        'snapshotId',
+      ] },
+      { accessor: 'workspace_id', name: 'workspace_snapshot_workspace_id_idx_btree', algorithm: 'btree', columns: [
+        'workspaceId',
+      ] },
+    ],
+    constraints: [
+      { name: 'workspace_snapshot_snapshot_id_key', constraint: 'unique', columns: ['snapshotId'] },
+    ],
+  }, WorkspaceSnapshotRow),
+  activeRooms: __table({
+    name: 'active_rooms',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, ActiveRoomsRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
-  __reducerSchema("add", AddReducer),
   __reducerSchema("add_step", AddStepReducer),
+  __reducerSchema("add_agent_to_room", AddAgentToRoomReducer),
+  __reducerSchema("append_chunk", AppendChunkReducer),
+  __reducerSchema("archive_room", ArchiveRoomReducer),
+  __reducerSchema("claim_job", ClaimJobReducer),
+  __reducerSchema("close_thread", CloseThreadReducer),
+  __reducerSchema("complete_job", CompleteJobReducer),
   __reducerSchema("create_job", CreateJobReducer),
-  __reducerSchema("say_hello", SayHelloReducer),
+  __reducerSchema("create_room", CreateRoomReducer),
+  __reducerSchema("create_workspace", CreateWorkspaceReducer),
+  __reducerSchema("fail_job", FailJobReducer),
+  __reducerSchema("generate_snapshot", GenerateSnapshotReducer),
+  __reducerSchema("heartbeat", HeartbeatReducer),
+  __reducerSchema("join_room", JoinRoomReducer),
+  __reducerSchema("leave_room", LeaveRoomReducer),
+  __reducerSchema("link_thread_to_merge", LinkThreadToMergeReducer),
+  __reducerSchema("log_tool_call", LogToolCallReducer),
+  __reducerSchema("mark_exploration", MarkExplorationReducer),
+  __reducerSchema("move_room", MoveRoomReducer),
+  __reducerSchema("open_merge_session", OpenMergeSessionReducer),
+  __reducerSchema("post_message", PostMessageReducer),
+  __reducerSchema("publish_synthesis", PublishSynthesisReducer),
+  __reducerSchema("push_room_memory", PushRoomMemoryReducer),
+  __reducerSchema("register_agent", RegisterAgentReducer),
+  __reducerSchema("register_worker", RegisterWorkerReducer),
+  __reducerSchema("remove_agent_from_room", RemoveAgentFromRoomReducer),
+  __reducerSchema("resolve_tool_call", ResolveToolCallReducer),
+  __reducerSchema("signal_event", SignalEventReducer),
+  __reducerSchema("start_thread", StartThreadReducer),
   __reducerSchema("update_job", UpdateJobReducer),
   __reducerSchema("update_step", UpdateStepReducer),
+  __reducerSchema("update_agent", UpdateAgentReducer),
+  __reducerSchema("update_display_name", UpdateDisplayNameReducer),
+  __reducerSchema("update_exploration", UpdateExplorationReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
@@ -110,6 +417,32 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "agent_job": Omit<typeof tablesSchema.schemaType.tables["agentJob"], "accessorName"> & { readonly accessorName: "agent_job" };
     /** @deprecated Use `agentStep` instead. This alias will be removed in the next major version. */
     readonly "agent_step": Omit<typeof tablesSchema.schemaType.tables["agentStep"], "accessorName"> & { readonly accessorName: "agent_step" };
+    /** @deprecated Use `aiJob` instead. This alias will be removed in the next major version. */
+    readonly "ai_job": Omit<typeof tablesSchema.schemaType.tables["aiJob"], "accessorName"> & { readonly accessorName: "ai_job" };
+    /** @deprecated Use `appUser` instead. This alias will be removed in the next major version. */
+    readonly "app_user": Omit<typeof tablesSchema.schemaType.tables["appUser"], "accessorName"> & { readonly accessorName: "app_user" };
+    /** @deprecated Use `mergeLink` instead. This alias will be removed in the next major version. */
+    readonly "merge_link": Omit<typeof tablesSchema.schemaType.tables["mergeLink"], "accessorName"> & { readonly accessorName: "merge_link" };
+    /** @deprecated Use `mergeSession` instead. This alias will be removed in the next major version. */
+    readonly "merge_session": Omit<typeof tablesSchema.schemaType.tables["mergeSession"], "accessorName"> & { readonly accessorName: "merge_session" };
+    /** @deprecated Use `messageChunk` instead. This alias will be removed in the next major version. */
+    readonly "message_chunk": Omit<typeof tablesSchema.schemaType.tables["messageChunk"], "accessorName"> & { readonly accessorName: "message_chunk" };
+    /** @deprecated Use `roomAgent` instead. This alias will be removed in the next major version. */
+    readonly "room_agent": Omit<typeof tablesSchema.schemaType.tables["roomAgent"], "accessorName"> & { readonly accessorName: "room_agent" };
+    /** @deprecated Use `roomHuman` instead. This alias will be removed in the next major version. */
+    readonly "room_human": Omit<typeof tablesSchema.schemaType.tables["roomHuman"], "accessorName"> & { readonly accessorName: "room_human" };
+    /** @deprecated Use `roomMemoryEntry` instead. This alias will be removed in the next major version. */
+    readonly "room_memory_entry": Omit<typeof tablesSchema.schemaType.tables["roomMemoryEntry"], "accessorName"> & { readonly accessorName: "room_memory_entry" };
+    /** @deprecated Use `roomPresence` instead. This alias will be removed in the next major version. */
+    readonly "room_presence": Omit<typeof tablesSchema.schemaType.tables["roomPresence"], "accessorName"> & { readonly accessorName: "room_presence" };
+    /** @deprecated Use `streamEvent` instead. This alias will be removed in the next major version. */
+    readonly "stream_event": Omit<typeof tablesSchema.schemaType.tables["streamEvent"], "accessorName"> & { readonly accessorName: "stream_event" };
+    /** @deprecated Use `toolCall` instead. This alias will be removed in the next major version. */
+    readonly "tool_call": Omit<typeof tablesSchema.schemaType.tables["toolCall"], "accessorName"> & { readonly accessorName: "tool_call" };
+    /** @deprecated Use `workspaceSnapshot` instead. This alias will be removed in the next major version. */
+    readonly "workspace_snapshot": Omit<typeof tablesSchema.schemaType.tables["workspaceSnapshot"], "accessorName"> & { readonly accessorName: "workspace_snapshot" };
+    /** @deprecated Use `activeRooms` instead. This alias will be removed in the next major version. */
+    readonly "active_rooms": Omit<typeof tablesSchema.schemaType.tables["activeRooms"], "accessorName"> & { readonly accessorName: "active_rooms" };
   };
 };
 
@@ -130,6 +463,19 @@ const REMOTE_MODULE = {
 const tableAccessorAliases = {
   "agent_job": "agentJob",
   "agent_step": "agentStep",
+  "ai_job": "aiJob",
+  "app_user": "appUser",
+  "merge_link": "mergeLink",
+  "merge_session": "mergeSession",
+  "message_chunk": "messageChunk",
+  "room_agent": "roomAgent",
+  "room_human": "roomHuman",
+  "room_memory_entry": "roomMemoryEntry",
+  "room_presence": "roomPresence",
+  "stream_event": "streamEvent",
+  "tool_call": "toolCall",
+  "workspace_snapshot": "workspaceSnapshot",
+  "active_rooms": "activeRooms",
 } as const;
 
 function __withTableAccessorAliases<T extends object>(target: T, freeze = false): T {
@@ -154,6 +500,32 @@ export type DbView = __DbViewBase & {
   readonly "agent_job": __DbViewBase["agentJob"];
   /** @deprecated Use `agentStep` instead. This alias will be removed in the next major version. */
   readonly "agent_step": __DbViewBase["agentStep"];
+  /** @deprecated Use `aiJob` instead. This alias will be removed in the next major version. */
+  readonly "ai_job": __DbViewBase["aiJob"];
+  /** @deprecated Use `appUser` instead. This alias will be removed in the next major version. */
+  readonly "app_user": __DbViewBase["appUser"];
+  /** @deprecated Use `mergeLink` instead. This alias will be removed in the next major version. */
+  readonly "merge_link": __DbViewBase["mergeLink"];
+  /** @deprecated Use `mergeSession` instead. This alias will be removed in the next major version. */
+  readonly "merge_session": __DbViewBase["mergeSession"];
+  /** @deprecated Use `messageChunk` instead. This alias will be removed in the next major version. */
+  readonly "message_chunk": __DbViewBase["messageChunk"];
+  /** @deprecated Use `roomAgent` instead. This alias will be removed in the next major version. */
+  readonly "room_agent": __DbViewBase["roomAgent"];
+  /** @deprecated Use `roomHuman` instead. This alias will be removed in the next major version. */
+  readonly "room_human": __DbViewBase["roomHuman"];
+  /** @deprecated Use `roomMemoryEntry` instead. This alias will be removed in the next major version. */
+  readonly "room_memory_entry": __DbViewBase["roomMemoryEntry"];
+  /** @deprecated Use `roomPresence` instead. This alias will be removed in the next major version. */
+  readonly "room_presence": __DbViewBase["roomPresence"];
+  /** @deprecated Use `streamEvent` instead. This alias will be removed in the next major version. */
+  readonly "stream_event": __DbViewBase["streamEvent"];
+  /** @deprecated Use `toolCall` instead. This alias will be removed in the next major version. */
+  readonly "tool_call": __DbViewBase["toolCall"];
+  /** @deprecated Use `workspaceSnapshot` instead. This alias will be removed in the next major version. */
+  readonly "workspace_snapshot": __DbViewBase["workspaceSnapshot"];
+  /** @deprecated Use `activeRooms` instead. This alias will be removed in the next major version. */
+  readonly "active_rooms": __DbViewBase["activeRooms"];
 };
 
 type __TablesBase = __QueryBuilder<typeof tablesSchema.schemaType>;
@@ -162,6 +534,32 @@ export type Tables = __TablesBase & {
   readonly "agent_job": __TablesBase["agentJob"];
   /** @deprecated Use `agentStep` instead. This alias will be removed in the next major version. */
   readonly "agent_step": __TablesBase["agentStep"];
+  /** @deprecated Use `aiJob` instead. This alias will be removed in the next major version. */
+  readonly "ai_job": __TablesBase["aiJob"];
+  /** @deprecated Use `appUser` instead. This alias will be removed in the next major version. */
+  readonly "app_user": __TablesBase["appUser"];
+  /** @deprecated Use `mergeLink` instead. This alias will be removed in the next major version. */
+  readonly "merge_link": __TablesBase["mergeLink"];
+  /** @deprecated Use `mergeSession` instead. This alias will be removed in the next major version. */
+  readonly "merge_session": __TablesBase["mergeSession"];
+  /** @deprecated Use `messageChunk` instead. This alias will be removed in the next major version. */
+  readonly "message_chunk": __TablesBase["messageChunk"];
+  /** @deprecated Use `roomAgent` instead. This alias will be removed in the next major version. */
+  readonly "room_agent": __TablesBase["roomAgent"];
+  /** @deprecated Use `roomHuman` instead. This alias will be removed in the next major version. */
+  readonly "room_human": __TablesBase["roomHuman"];
+  /** @deprecated Use `roomMemoryEntry` instead. This alias will be removed in the next major version. */
+  readonly "room_memory_entry": __TablesBase["roomMemoryEntry"];
+  /** @deprecated Use `roomPresence` instead. This alias will be removed in the next major version. */
+  readonly "room_presence": __TablesBase["roomPresence"];
+  /** @deprecated Use `streamEvent` instead. This alias will be removed in the next major version. */
+  readonly "stream_event": __TablesBase["streamEvent"];
+  /** @deprecated Use `toolCall` instead. This alias will be removed in the next major version. */
+  readonly "tool_call": __TablesBase["toolCall"];
+  /** @deprecated Use `workspaceSnapshot` instead. This alias will be removed in the next major version. */
+  readonly "workspace_snapshot": __TablesBase["workspaceSnapshot"];
+  /** @deprecated Use `activeRooms` instead. This alias will be removed in the next major version. */
+  readonly "active_rooms": __TablesBase["activeRooms"];
 };
 
 /** The tables available in this remote SpacetimeDB module. Each table reference doubles as a query builder. */

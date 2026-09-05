@@ -376,6 +376,82 @@ const requireRoomMember = (ctx: Ctx, room_id: bigint): void => {
 
 // ── lifecycle ──
 
+const DEFAULT_AGENTS = [
+  {
+    model_name: "gpt-oss-120b",
+    model_provider: "generalcompute",
+    name: "Neb",
+    system_prompt:
+      "You are Neb, the general orchestrator that routes work to specialist agents.",
+    tools: ["orchestrate"],
+  },
+  {
+    model_name: "gpt-oss-120b",
+    model_provider: "generalcompute",
+    name: "Researcher",
+    system_prompt:
+      "You are Researcher, the web search specialist that finds current facts and sources.",
+    tools: ["web_search"],
+  },
+  {
+    model_name: "gpt-oss-120b",
+    model_provider: "generalcompute",
+    name: "Marketing",
+    system_prompt:
+      "You are Marketing, the market analysis specialist covering competitors, pricing, positioning and implementation.",
+    tools: ["market_analysis"],
+  },
+  {
+    model_name: "gpt-oss-120b",
+    model_provider: "generalcompute",
+    name: "Evaluator",
+    system_prompt:
+      "You are Evaluator, the decision specialist that weighs risks, tradeoffs, assumptions and recommendations.",
+    tools: ["evaluate"],
+  },
+] as const;
+
+const ensureDefaultAgents = (ctx: Ctx, workspace_id: bigint): void => {
+  const existing = new Set(
+    [...ctx.db.agent.workspace_id.filter(workspace_id)].map((a) => a.name)
+  );
+  for (const a of DEFAULT_AGENTS) {
+    if (existing.has(a.name)) {
+      continue;
+    }
+    ctx.db.agent.insert({
+      agent_id: 0n,
+      created_at: ctx.timestamp,
+      created_by: ctx.sender,
+      model_name: a.model_name,
+      model_provider: a.model_provider,
+      name: a.name,
+      system_prompt: a.system_prompt,
+      tools: [...a.tools],
+      workspace_id,
+    });
+  }
+};
+
+const addWorkspaceAgentsToRoom = (
+  ctx: Ctx,
+  workspace_id: bigint,
+  room_id: bigint
+): void => {
+  for (const ag of ctx.db.agent.workspace_id.filter(workspace_id)) {
+    const exists = ctx.db.room_agent.by_room
+      .filter(room_id)
+      .some((r) => r.agent_id === ag.agent_id);
+    if (!exists) {
+      ctx.db.room_agent.insert({
+        added_at: ctx.timestamp,
+        agent_id: ag.agent_id,
+        room_id,
+      });
+    }
+  }
+};
+
 export const init = spacetimedb.init((ctx) => {
   const ws = ctx.db.workspace.insert({
     created_at: ctx.timestamp,
@@ -383,17 +459,7 @@ export const init = spacetimedb.init((ctx) => {
     name: "General",
     workspace_id: 0n,
   });
-  ctx.db.agent.insert({
-    agent_id: 0n,
-    created_at: ctx.timestamp,
-    created_by: ctx.sender,
-    model_name: "default",
-    model_provider: "worker",
-    name: "neb",
-    system_prompt: "You are neb, the team's shared research assistant.",
-    tools: ["web_search"],
-    workspace_id: ws.workspace_id,
-  });
+  ensureDefaultAgents(ctx, ws.workspace_id);
   // Canvas rollup every 5 minutes.
   ctx.db.snapshot_timer.insert({
     scheduled_at: ScheduleAt.interval(300_000_000n),
@@ -483,6 +549,7 @@ export const create_room = spacetimedb.reducer(
       joined_at: ctx.timestamp,
       room_id: r.room_id,
     });
+    addWorkspaceAgentsToRoom(ctx, a.workspace_id, r.room_id);
   }
 );
 
@@ -679,7 +746,7 @@ export const start_thread = spacetimedb.reducer(
       created_by: ctx.sender,
       merge_session_id: undefined,
       room_id: a.room_id,
-      status: 1,
+      status: a.tagged_agent === undefined ? 0 : 1,
       thread_id: 0n,
       title: a.title.trim().slice(0, 200) || prompt.slice(0, 80),
     });
@@ -695,17 +762,20 @@ export const start_thread = spacetimedb.reducer(
       streaming: false,
       thread_id: th.thread_id,
     });
-    ctx.db.ai_job.insert({
-      angle: a.angle.slice(0, 512),
-      created_at: ctx.timestamp,
-      created_by: ctx.sender,
-      job_id: 0n,
-      prompt,
-      room_id: a.room_id,
-      status: 0,
-      tagged_agent: a.tagged_agent,
-      thread_id: th.thread_id,
-    });
+    // No agent mentioned => nothing runs.
+    if (a.tagged_agent !== undefined) {
+      ctx.db.ai_job.insert({
+        angle: a.angle.slice(0, 512),
+        created_at: ctx.timestamp,
+        created_by: ctx.sender,
+        job_id: 0n,
+        prompt,
+        room_id: a.room_id,
+        status: 0,
+        tagged_agent: a.tagged_agent,
+        thread_id: th.thread_id,
+      });
+    }
   }
 );
 
@@ -737,18 +807,24 @@ export const post_message = spacetimedb.reducer(
       streaming: false,
       thread_id: th.thread_id,
     });
-    ctx.db.thread.thread_id.update({ ...th, status: 1 });
-    ctx.db.ai_job.insert({
-      angle: "",
-      created_at: ctx.timestamp,
-      created_by: ctx.sender,
-      job_id: 0n,
-      prompt: body,
-      room_id: th.room_id,
-      status: 0,
-      tagged_agent: a.mentions.length > 0 ? a.mentions[0] : undefined,
-      thread_id: th.thread_id,
+    ctx.db.thread.thread_id.update({
+      ...th,
+      status: a.mentions.length > 0 ? 1 : 0,
     });
+    // No agent mentioned => nothing runs.
+    if (a.mentions.length > 0) {
+      ctx.db.ai_job.insert({
+        angle: "",
+        created_at: ctx.timestamp,
+        created_by: ctx.sender,
+        job_id: 0n,
+        prompt: body,
+        room_id: th.room_id,
+        status: 0,
+        tagged_agent: a.mentions[0],
+        thread_id: th.thread_id,
+      });
+    }
   }
 );
 
@@ -796,7 +872,7 @@ export const claim_job = spacetimedb.reducer(
       created_at: ctx.timestamp,
       kind: "thinking",
       message_id: msg.message_id,
-      payload: job.angle,
+      payload: job.angle.trim().slice(0, 200) || "Thinking…",
     });
   }
 );
@@ -860,7 +936,7 @@ export const complete_job = spacetimedb.reducer(
     if (msg.thread_id !== job.thread_id) {
       throw new SenderError("message does not belong to job thread");
     }
-    const body = assertNonEmpty(final_body, "final_body");
+    const body = final_body.trim().slice(0, 8000);
     ctx.db.message.message_id.update({ ...msg, body, streaming: false });
     ctx.db.ai_job.job_id.update({ ...job, status: 2 });
     const th = ctx.db.thread.thread_id.find(job.thread_id);

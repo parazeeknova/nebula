@@ -39,6 +39,7 @@ const connectWriter = (): Promise<DbConnection> => {
         DbConnection.builder()
           .withUri(config.spacetimedbHost)
           .withDatabaseName(config.spacetimedbDb)
+          .withToken(config.spacetimedbToken || undefined)
           .onConnect((conn) => {
             clearTimeout(timeoutId);
             resolve(conn);
@@ -172,6 +173,7 @@ export const getJob = (jobId: string): Promise<JobJson | null> =>
       conn = DbConnection.builder()
         .withUri(config.spacetimedbHost)
         .withDatabaseName(config.spacetimedbDb)
+        .withToken(config.spacetimedbToken || undefined)
         .onConnect((c) => {
           c.subscriptionBuilder()
             .onApplied(() => {

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "bun run src/index.ts",
     "start": "bun run src/index.ts",
+    "worker": "bun run src/worker.ts",
+    "seed": "bun run src/seed-agents.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "typecheck": "tsc --noEmit",
     "test": "bun test",

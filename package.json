@@ -13,6 +13,8 @@
     "build": "lerna run build --stream",
     "start": "lerna run start --scope @nebula/web --stream",
     "start:api": "lerna run start --scope @nebula/api --stream",
+    "worker": "lerna run worker --scope @nebula/api --stream",
+    "seed": "lerna run seed --scope @nebula/api --stream",
     "generate": "lerna run generate --stream",
     "check": "oxfmt --write && oxlint --fix-dangerously",
     "check-types": "lerna run typecheck --stream",

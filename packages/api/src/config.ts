@@ -9,6 +9,8 @@ export const config = {
   llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 120_000),
   model: process.env.GENERALCOMPUTE_MODEL ?? "gpt-oss-120b",
   port: Number(process.env.PORT ?? 3002),
-  spacetimedbDb: process.env.SPACETIMEDB_DB_NAME ?? "neb",
+  spacetimedbDb: process.env.SPACETIMEDB_DB_NAME ?? "nebula",
   spacetimedbHost: process.env.SPACETIMEDB_HOST ?? "ws://127.0.0.1:3000",
+  spacetimedbToken: process.env.SPACETIMEDB_TOKEN ?? "",
+  workerPollMs: Number(process.env.WORKER_POLL_MS ?? 1000),
 };

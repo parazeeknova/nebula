@@ -26,6 +26,32 @@ export const Agent = __t.object("Agent", {
 });
 export type Agent = __Infer<typeof Agent>;
 
+export const AgentJob = __t.object("AgentJob", {
+  createdAt: __t.timestamp(),
+  error: __t.option(__t.string()),
+  finalResult: __t.option(__t.string()),
+  jobId: __t.string(),
+  prompt: __t.string(),
+  requestedAgent: __t.option(__t.string()),
+  selectedAgents: __t.option(__t.string()),
+  status: __t.string(),
+  updatedAt: __t.timestamp(),
+});
+export type AgentJob = __Infer<typeof AgentJob>;
+
+export const AgentStep = __t.object("AgentStep", {
+  agent: __t.string(),
+  createdAt: __t.timestamp(),
+  input: __t.string(),
+  jobId: __t.string(),
+  output: __t.option(__t.string()),
+  status: __t.string(),
+  stepId: __t.string(),
+  stepOrder: __t.u32(),
+  updatedAt: __t.timestamp(),
+});
+export type AgentStep = __Infer<typeof AgentStep>;
+
 export const AiJob = __t.object("AiJob", {
   angle: __t.string(),
   createdAt: __t.timestamp(),

@@ -308,7 +308,7 @@ const toAgent = (
   modelName: a.modelName,
   modelProvider: a.modelProvider,
   name: a.name,
-  presence: running ? "working" : "active",
+  presence: running ? "working" : "idle",
   systemPrompt: a.systemPrompt,
   tools: [...a.tools],
   workspaceId: a.workspaceId,

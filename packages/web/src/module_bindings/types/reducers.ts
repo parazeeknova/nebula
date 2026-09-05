@@ -6,12 +6,14 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AddStepReducer from "../add_step_reducer";
 import AddAgentToRoomReducer from "../add_agent_to_room_reducer";
 import AppendChunkReducer from "../append_chunk_reducer";
 import ArchiveRoomReducer from "../archive_room_reducer";
 import ClaimJobReducer from "../claim_job_reducer";
 import CloseThreadReducer from "../close_thread_reducer";
 import CompleteJobReducer from "../complete_job_reducer";
+import CreateJobReducer from "../create_job_reducer";
 import CreateRoomReducer from "../create_room_reducer";
 import CreateWorkspaceReducer from "../create_workspace_reducer";
 import FailJobReducer from "../fail_job_reducer";
@@ -33,16 +35,20 @@ import RemoveAgentFromRoomReducer from "../remove_agent_from_room_reducer";
 import ResolveToolCallReducer from "../resolve_tool_call_reducer";
 import SignalEventReducer from "../signal_event_reducer";
 import StartThreadReducer from "../start_thread_reducer";
+import UpdateJobReducer from "../update_job_reducer";
+import UpdateStepReducer from "../update_step_reducer";
 import UpdateAgentReducer from "../update_agent_reducer";
 import UpdateDisplayNameReducer from "../update_display_name_reducer";
 import UpdateExplorationReducer from "../update_exploration_reducer";
 
+export type AddStepParams = __Infer<typeof AddStepReducer>;
 export type AddAgentToRoomParams = __Infer<typeof AddAgentToRoomReducer>;
 export type AppendChunkParams = __Infer<typeof AppendChunkReducer>;
 export type ArchiveRoomParams = __Infer<typeof ArchiveRoomReducer>;
 export type ClaimJobParams = __Infer<typeof ClaimJobReducer>;
 export type CloseThreadParams = __Infer<typeof CloseThreadReducer>;
 export type CompleteJobParams = __Infer<typeof CompleteJobReducer>;
+export type CreateJobParams = __Infer<typeof CreateJobReducer>;
 export type CreateRoomParams = __Infer<typeof CreateRoomReducer>;
 export type CreateWorkspaceParams = __Infer<typeof CreateWorkspaceReducer>;
 export type FailJobParams = __Infer<typeof FailJobReducer>;
@@ -64,6 +70,8 @@ export type RemoveAgentFromRoomParams = __Infer<typeof RemoveAgentFromRoomReduce
 export type ResolveToolCallParams = __Infer<typeof ResolveToolCallReducer>;
 export type SignalEventParams = __Infer<typeof SignalEventReducer>;
 export type StartThreadParams = __Infer<typeof StartThreadReducer>;
+export type UpdateJobParams = __Infer<typeof UpdateJobReducer>;
+export type UpdateStepParams = __Infer<typeof UpdateStepReducer>;
 export type UpdateAgentParams = __Infer<typeof UpdateAgentReducer>;
 export type UpdateDisplayNameParams = __Infer<typeof UpdateDisplayNameReducer>;
 export type UpdateExplorationParams = __Infer<typeof UpdateExplorationReducer>;

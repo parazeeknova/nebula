@@ -18,8 +18,26 @@ export const AGENTS = {
 
 export type AgentName = keyof typeof AGENTS;
 
+/** Orchestrator dispatch for the shared "Neb" agent (routes to specialists). */
+export type AgentRoute = AgentName | "orchestrator";
+
 // Canonical execution order. Kept separate from AGENTS key order on purpose.
 export const AGENT_NAMES: AgentName[] = ["web", "market", "evaluation"];
 
 export const isAgentName = (value: unknown): value is AgentName =>
   typeof value === "string" && Object.hasOwn(AGENTS, value);
+
+/** Frontend @mention handle -> what the worker should run. */
+export const HANDLE_TO_AGENT = {
+  evaluator: "evaluation",
+  marketing: "market",
+  neb: "orchestrator",
+  researcher: "web",
+} as const satisfies Record<string, AgentRoute>;
+
+export type AgentHandle = keyof typeof HANDLE_TO_AGENT;
+
+export const AGENT_HANDLES = Object.keys(HANDLE_TO_AGENT) as AgentHandle[];
+
+export const isAgentHandle = (value: unknown): value is AgentHandle =>
+  typeof value === "string" && Object.hasOwn(HANDLE_TO_AGENT, value);

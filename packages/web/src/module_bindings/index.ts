@@ -34,12 +34,14 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AddStepReducer from "./add_step_reducer";
 import AddAgentToRoomReducer from "./add_agent_to_room_reducer";
 import AppendChunkReducer from "./append_chunk_reducer";
 import ArchiveRoomReducer from "./archive_room_reducer";
 import ClaimJobReducer from "./claim_job_reducer";
 import CloseThreadReducer from "./close_thread_reducer";
 import CompleteJobReducer from "./complete_job_reducer";
+import CreateJobReducer from "./create_job_reducer";
 import CreateRoomReducer from "./create_room_reducer";
 import CreateWorkspaceReducer from "./create_workspace_reducer";
 import FailJobReducer from "./fail_job_reducer";
@@ -61,6 +63,8 @@ import RemoveAgentFromRoomReducer from "./remove_agent_from_room_reducer";
 import ResolveToolCallReducer from "./resolve_tool_call_reducer";
 import SignalEventReducer from "./signal_event_reducer";
 import StartThreadReducer from "./start_thread_reducer";
+import UpdateJobReducer from "./update_job_reducer";
+import UpdateStepReducer from "./update_step_reducer";
 import UpdateAgentReducer from "./update_agent_reducer";
 import UpdateDisplayNameReducer from "./update_display_name_reducer";
 import UpdateExplorationReducer from "./update_exploration_reducer";
@@ -70,6 +74,8 @@ import UpdateExplorationReducer from "./update_exploration_reducer";
 // Import all table schema definitions
 import ActiveRoomsRow from "./active_rooms_table";
 import AgentRow from "./agent_table";
+import AgentJobRow from "./agent_job_table";
+import AgentStepRow from "./agent_step_table";
 import AiJobRow from "./ai_job_table";
 import AppUserRow from "./app_user_table";
 import ExplorationRow from "./exploration_table";
@@ -106,6 +112,31 @@ const tablesSchema = __schema({
       { name: 'agent_agent_id_key', constraint: 'unique', columns: ['agentId'] },
     ],
   }, AgentRow),
+  agentJob: __table({
+    name: 'agent_job',
+    indexes: [
+      { accessor: 'job_id', name: 'agent_job_job_id_idx_btree', algorithm: 'btree', columns: [
+        'jobId',
+      ] },
+    ],
+    constraints: [
+      { name: 'agent_job_job_id_key', constraint: 'unique', columns: ['jobId'] },
+    ],
+  }, AgentJobRow),
+  agentStep: __table({
+    name: 'agent_step',
+    indexes: [
+      { accessor: 'by_job', name: 'agent_step_job_id_idx_btree', algorithm: 'btree', columns: [
+        'jobId',
+      ] },
+      { accessor: 'step_id', name: 'agent_step_step_id_idx_btree', algorithm: 'btree', columns: [
+        'stepId',
+      ] },
+    ],
+    constraints: [
+      { name: 'agent_step_step_id_key', constraint: 'unique', columns: ['stepId'] },
+    ],
+  }, AgentStepRow),
   aiJob: __table({
     name: 'ai_job',
     indexes: [
@@ -340,12 +371,14 @@ const tablesSchema = __schema({
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("add_step", AddStepReducer),
   __reducerSchema("add_agent_to_room", AddAgentToRoomReducer),
   __reducerSchema("append_chunk", AppendChunkReducer),
   __reducerSchema("archive_room", ArchiveRoomReducer),
   __reducerSchema("claim_job", ClaimJobReducer),
   __reducerSchema("close_thread", CloseThreadReducer),
   __reducerSchema("complete_job", CompleteJobReducer),
+  __reducerSchema("create_job", CreateJobReducer),
   __reducerSchema("create_room", CreateRoomReducer),
   __reducerSchema("create_workspace", CreateWorkspaceReducer),
   __reducerSchema("fail_job", FailJobReducer),
@@ -367,6 +400,8 @@ const reducersSchema = __reducers(
   __reducerSchema("resolve_tool_call", ResolveToolCallReducer),
   __reducerSchema("signal_event", SignalEventReducer),
   __reducerSchema("start_thread", StartThreadReducer),
+  __reducerSchema("update_job", UpdateJobReducer),
+  __reducerSchema("update_step", UpdateStepReducer),
   __reducerSchema("update_agent", UpdateAgentReducer),
   __reducerSchema("update_display_name", UpdateDisplayNameReducer),
   __reducerSchema("update_exploration", UpdateExplorationReducer),
@@ -378,6 +413,10 @@ const proceduresSchema = __procedures(
 
 type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "tables"> & {
   tables: typeof tablesSchema.schemaType.tables & {
+    /** @deprecated Use `agentJob` instead. This alias will be removed in the next major version. */
+    readonly "agent_job": Omit<typeof tablesSchema.schemaType.tables["agentJob"], "accessorName"> & { readonly accessorName: "agent_job" };
+    /** @deprecated Use `agentStep` instead. This alias will be removed in the next major version. */
+    readonly "agent_step": Omit<typeof tablesSchema.schemaType.tables["agentStep"], "accessorName"> & { readonly accessorName: "agent_step" };
     /** @deprecated Use `aiJob` instead. This alias will be removed in the next major version. */
     readonly "ai_job": Omit<typeof tablesSchema.schemaType.tables["aiJob"], "accessorName"> & { readonly accessorName: "ai_job" };
     /** @deprecated Use `appUser` instead. This alias will be removed in the next major version. */
@@ -422,6 +461,8 @@ const REMOTE_MODULE = {
 >;
 
 const tableAccessorAliases = {
+  "agent_job": "agentJob",
+  "agent_step": "agentStep",
   "ai_job": "aiJob",
   "app_user": "appUser",
   "merge_link": "mergeLink",
@@ -455,6 +496,10 @@ function __withTableAccessorAliases<T extends object>(target: T, freeze = false)
 
 type __DbViewBase = __DbConnectionImpl<typeof REMOTE_MODULE>["db"];
 export type DbView = __DbViewBase & {
+  /** @deprecated Use `agentJob` instead. This alias will be removed in the next major version. */
+  readonly "agent_job": __DbViewBase["agentJob"];
+  /** @deprecated Use `agentStep` instead. This alias will be removed in the next major version. */
+  readonly "agent_step": __DbViewBase["agentStep"];
   /** @deprecated Use `aiJob` instead. This alias will be removed in the next major version. */
   readonly "ai_job": __DbViewBase["aiJob"];
   /** @deprecated Use `appUser` instead. This alias will be removed in the next major version. */
@@ -485,6 +530,10 @@ export type DbView = __DbViewBase & {
 
 type __TablesBase = __QueryBuilder<typeof tablesSchema.schemaType>;
 export type Tables = __TablesBase & {
+  /** @deprecated Use `agentJob` instead. This alias will be removed in the next major version. */
+  readonly "agent_job": __TablesBase["agentJob"];
+  /** @deprecated Use `agentStep` instead. This alias will be removed in the next major version. */
+  readonly "agent_step": __TablesBase["agentStep"];
   /** @deprecated Use `aiJob` instead. This alias will be removed in the next major version. */
   readonly "ai_job": __TablesBase["aiJob"];
   /** @deprecated Use `appUser` instead. This alias will be removed in the next major version. */
