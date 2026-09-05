@@ -92,6 +92,7 @@ export const RoomView = ({
         {shown ? (
           <MessageList
             messages={data.messages}
+            threads={data.threads}
             agents={data.agents}
             roomName={room.name}
           />

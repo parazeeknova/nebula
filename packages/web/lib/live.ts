@@ -283,6 +283,7 @@ export const useStreamTicks = (): ReadonlyMap<string, StreamTick[]> => {
 export interface RoomData {
   room: Room | undefined;
   thread: Thread | null;
+  threads: Thread[];
   messages: ChatMessage[];
   agents: Agent[];
   humans: RoomHuman[];
@@ -350,6 +351,9 @@ export const useRoomData = (
     const room = roomRows[0] ? toRoom(roomRows[0]) : undefined;
     const threadRow = pickActiveThread(threadRows);
     const thread = threadRow ? toThread(threadRow) : null;
+    // Every thread in the room, newest first — the view renders all of
+    // them so no conversation can silently disappear.
+    const threads = threadRows.toSorted(byCreatedDesc).map(toThread);
 
     const users = new Map<string, AppUser>();
     for (const u of userRows) {
@@ -430,8 +434,9 @@ export const useRoomData = (
       chunksByMessage.set(key, list);
     }
 
+    // All room messages in time order across every thread. The list
+    // groups contiguous runs per thread; nothing is filtered out.
     const messages: ChatMessage[] = messageRows
-      .filter((m) => threadRow !== null && m.threadId === threadRow.threadId)
       .toSorted((a, b) => (a.messageId < b.messageId ? -1 : 1))
       .map((m) => {
         const hex = hexOf(m.author);
@@ -440,10 +445,7 @@ export const useRoomData = (
             ? undefined
             : agentsById.get(m.authorAgent);
         const user = users.get(hex);
-        const job =
-          threadRow === null
-            ? undefined
-            : latestJobByThread.get(String(threadRow.threadId));
+        const job = latestJobByThread.get(String(m.threadId));
         const tool =
           job === undefined
             ? undefined
@@ -521,6 +523,7 @@ export const useRoomData = (
       ready: roomsReady && threadsReady,
       room,
       thread,
+      threads,
     };
   }, [
     roomRows,
