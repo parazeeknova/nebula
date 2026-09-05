@@ -59,12 +59,16 @@ export const RoomView = ({
   useEffect(() => {
     if (data.threads.length > prevThreadCount.current) {
       const [newest] = data.threads;
-      if (newest && newest.title !== "General") {
+      if (
+        newest &&
+        newest.title !== "General" &&
+        newest.title !== data.room?.name
+      ) {
         setActiveThreadId(newest.threadId);
       }
     }
     prevThreadCount.current = data.threads.length;
-  }, [data.threads]);
+  }, [data.threads, data.room?.name]);
 
   // Show skeleton placeholders until the subscription is live —
   // with a fallback timeout so a dead backend never traps the UI.

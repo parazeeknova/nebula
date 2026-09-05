@@ -108,15 +108,19 @@ export const MessageList = ({
     return first;
   }, [messages]);
 
-  // Contiguous runs per thread in time order. The main chat only shows each
-  // thread's origin prompt (plus system rows) — agent replies and in-thread
-  // steering stay inside the thread pane.
+  // Contiguous runs per thread in time order. The main chat shows all messages
+  // from the general room chat, but for agent threads only shows each thread's
+  // origin prompt (plus system rows) — agent replies and in-thread steering stay
+  // inside the thread pane.
   const groups = useMemo(() => {
     const out: ThreadGroup[] = [];
     for (const m of messages) {
+      const t = titles.get(String(m.threadId));
+      const isGeneral =
+        t?.title === "General" || (roomName ? t?.title === roomName : false);
       const isOrigin =
         m.role === 0 && threadOrigins.get(String(m.threadId)) === m.messageId;
-      if (m.role !== 3 && !isOrigin) {
+      if (!isGeneral && m.role !== 3 && !isOrigin) {
         continue;
       }
       const last = out.at(-1);
@@ -127,7 +131,7 @@ export const MessageList = ({
       }
     }
     return out;
-  }, [messages, threadOrigins]);
+  }, [messages, titles, roomName, threadOrigins]);
 
   return (
     <div
@@ -168,8 +172,7 @@ export const MessageList = ({
         const t = titles.get(String(g.threadId));
         const summary = threadSummaries?.get(String(g.threadId));
         const isGeneral =
-          t?.title === "General" ||
-          (t?.status === ThreadStatus.Open && (summary?.replyCount ?? 0) === 0);
+          t?.title === "General" || (roomName ? t?.title === roomName : false);
         const hasThreadActivity =
           (summary?.replyCount ?? 0) > 0 || Boolean(summary?.streaming);
         return (

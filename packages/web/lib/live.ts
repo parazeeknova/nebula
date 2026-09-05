@@ -791,9 +791,11 @@ export const useRoomData = (
     };
 
     const generalThread =
-      threads.find((t) => t.title === "General" || t.title === room?.name) ??
-      threads.find((t) => !latestJobByThread.has(String(t.threadId))) ??
-      undefined;
+      threads.find(
+        (t) =>
+          t.title === "General" ||
+          (room?.name !== undefined && t.title === room.name)
+      ) ?? undefined;
 
     return {
       agents,
