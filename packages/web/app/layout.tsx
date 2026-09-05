@@ -1,17 +1,35 @@
 import type { Metadata } from "next";
+import { JetBrains_Mono, Poppins } from "next/font/google";
 
 import { Providers } from "./providers";
 
 import "./globals.css";
 
+/**
+ * Poppins across all UI type (body + display), self-hosted via
+ * next/font. JetBrains Mono stays for technical micro-labels
+ * (timestamps, badges, tool chips).
+ */
+const sans = Poppins({
+  subsets: ["latin"],
+  variable: "--neb-body",
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const code = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--neb-mono",
+  weight: ["400", "500", "600"],
+});
+
 export const metadata: Metadata = {
-  description: "A Next.js app powered by SpacetimeDB",
-  title: "SpacetimeDB Next.js App",
+  description: "Nebula — one shared brain per room, on a live canvas",
+  title: "Nebula",
 };
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => (
   <html lang="en">
-    <body>
+    <body className={`${sans.variable} ${code.variable}`}>
       <Providers>{children}</Providers>
     </body>
   </html>
