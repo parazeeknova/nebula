@@ -112,35 +112,38 @@ export const MembersPanel = ({
       )}
 
       <Section title={`Members — ${online.length} online`}>
-        {online.map((h) => (
-          <div
-            key={h.hex}
-            className="flex cursor-pointer items-center gap-2.5 px-2 py-1.5 transition hover:bg-white/[0.05]"
-          >
-            <Avatar name={h.displayName} color={h.color} size={32} online />
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="text-ink block truncate text-[13px] font-semibold">
-                {h.displayName}
+        {online.map((h) => {
+          const isTyping = h.isTyping && h.roleLabel !== "you";
+          return (
+            <div
+              key={h.hex}
+              className="flex cursor-pointer items-center gap-2.5 px-2 py-1.5 transition hover:bg-white/[0.05]"
+            >
+              <Avatar name={h.displayName} color={h.color} size={32} online />
+              <span className="min-w-0 flex-1 leading-tight">
+                <span className="text-ink block truncate text-[13px] font-semibold">
+                  {h.displayName}
+                </span>
+                <span
+                  className={`block truncate text-[11px] ${isTyping ? "font-semibold text-white" : "text-ink-faint"}`}
+                >
+                  {isTyping ? "typing…" : (h.roleLabel ?? "member")}
+                </span>
               </span>
-              <span
-                className={`block truncate text-[11px] ${h.isTyping ? "font-semibold text-white" : "text-ink-faint"}`}
-              >
-                {h.isTyping ? "typing…" : (h.roleLabel ?? "member")}
-              </span>
-            </span>
-            {h.isTyping && (
-              <span className="flex shrink-0 gap-0.5">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="animate-typing bg-ink-faint h-1 w-1"
-                    style={{ animationDelay: `${i * 0.15}s` }}
-                  />
-                ))}
-              </span>
-            )}
-          </div>
-        ))}
+              {isTyping && (
+                <span className="flex shrink-0 gap-0.5">
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="animate-typing bg-ink-faint h-1 w-1"
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    />
+                  ))}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </Section>
     </aside>
   );

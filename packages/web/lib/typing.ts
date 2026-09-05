@@ -67,7 +67,8 @@ class TypingBus {
 export const typingBus = new TypingBus();
 
 export const useTypingStatus = (
-  roomId: bigint
+  roomId: bigint,
+  myIdentityHex?: string
 ): {
   typingIdentities: Set<string>;
   typingNames: string[];
@@ -83,7 +84,10 @@ export const useTypingStatus = (
     setTypers(new Map());
 
     const unsubscribe = typingBus.subscribe((event) => {
-      if (event.roomId !== roomIdStr) {
+      if (
+        event.roomId !== roomIdStr ||
+        (myIdentityHex && event.identityHex === myIdentityHex)
+      ) {
         return;
       }
 
@@ -120,10 +124,14 @@ export const useTypingStatus = (
       unsubscribe();
       clearInterval(interval);
     };
-  }, [roomIdStr]);
+  }, [roomIdStr, myIdentityHex]);
 
-  const typingIdentities = new Set(typers.keys());
-  const typingNames = [...typers.values()].map((t) => t.displayName);
+  const typingIdentities = new Set(
+    [...typers.keys()].filter((hex) => !myIdentityHex || hex !== myIdentityHex)
+  );
+  const typingNames = [...typers.entries()]
+    .filter(([hex]) => !myIdentityHex || hex !== myIdentityHex)
+    .map(([, t]) => t.displayName);
 
   return { typingIdentities, typingNames };
 };

@@ -51,7 +51,7 @@ export const ThreadPane = ({
   }, [agentWork, expandedAgentId]);
 
   const typingNames = humans
-    .filter((h) => h.isTyping)
+    .filter((h) => h.isTyping && h.roleLabel !== "you")
     .map((h) => h.displayName.split(" ")[0] ?? h.displayName);
 
   return (

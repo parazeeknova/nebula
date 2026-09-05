@@ -486,7 +486,7 @@ const buildHumans = (
       hex,
       identity: h.identity,
       isOnline: inRoom && presRow !== undefined && isFresh(presRow.lastSeen),
-      isTyping: Boolean(typingIdentities?.has(hex)),
+      isTyping: hex !== myHex && Boolean(typingIdentities?.has(hex)),
       lastSeenMins,
       roleLabel: hex === myHex ? "you" : "member",
     };
@@ -688,7 +688,7 @@ export const useRoomData = (
     };
   }, []);
 
-  const { typingIdentities } = useTypingStatus(roomId);
+  const { typingIdentities } = useTypingStatus(roomId, myHex);
 
   return useMemo(() => {
     const room = roomRows[0] ? toRoom(roomRows[0]) : undefined;
