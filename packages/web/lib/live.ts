@@ -29,6 +29,7 @@ import type {
   ThreadView,
   ToolCallInfo,
 } from "./room-types";
+import { useSharedTables } from "./shared-tables";
 
 const HEARTBEAT_MS = 20_000;
 const ONLINE_WINDOW_MS = 5 * 60_000;
@@ -161,7 +162,7 @@ export const useWorkspace = (): {
 };
 
 export const useLiveRooms = (): { rooms: Room[]; ready: boolean } => {
-  const [rows, ready] = useTable(tables.room);
+  const { rooms: rows } = useSharedTables();
   const rooms = useMemo(
     () =>
       rows
@@ -170,11 +171,11 @@ export const useLiveRooms = (): { rooms: Room[]; ready: boolean } => {
         .map(toRoom),
     [rows]
   );
-  return { ready, rooms };
+  return { ready: true, rooms };
 };
 
 export const usePresenceCounts = (): Record<string, number> => {
-  const [rows] = useTable(tables.room_presence);
+  const { presences: rows } = useSharedTables();
   return useMemo(() => {
     const counts: Record<string, number> = {};
     for (const p of rows) {
@@ -501,6 +502,15 @@ export const useRoomData = (
 ): RoomData => {
   const { identity } = useSpacetimeDB();
   const myHex = identity ? hexOf(identity) : "";
+  const {
+    agents: agentRows,
+    chunks: chunkRows,
+    explorations: explorationRows,
+    memories: memoryRows,
+    presences: presenceRows,
+    toolCalls: toolRows,
+    users: userRows,
+  } = useSharedTables();
 
   const [roomRows, roomsReady] = useTable(
     tables.room.where((r) => r.roomId.eq(roomId))
@@ -511,24 +521,15 @@ export const useRoomData = (
   const [messageRows] = useTable(
     tables.message.where((m) => m.roomId.eq(roomId))
   );
-  const [chunkRows] = useTable(tables.message_chunk);
-  const [agentRows] = useTable(tables.agent);
   const [roomAgentRows] = useTable(
     tables.room_agent.where((r) => r.roomId.eq(roomId))
   );
   const [roomHumanRows] = useTable(
     tables.room_human.where((r) => r.roomId.eq(roomId))
   );
-  const [userRows] = useTable(tables.app_user);
-  const [presenceRows] = useTable(tables.room_presence);
   const [jobRows] = useTable(tables.ai_job.where((j) => j.roomId.eq(roomId)));
-  const [toolRows] = useTable(tables.tool_call);
   const [sessionRows] = useTable(
     tables.merge_session.where((s) => s.roomId.eq(roomId))
-  );
-  const [explorationRows] = useTable(tables.exploration);
-  const [memoryRows] = useTable(
-    tables.room_memory_entry.where((m) => m.roomId.eq(roomId))
   );
 
   return useMemo(() => {
@@ -695,6 +696,11 @@ export const useThreadDetails = (
   agents: Agent[],
   ticks: ReadonlyMap<string, StreamTick[]>
 ): ThreadDetails => {
+  const {
+    chunks: chunkRows,
+    toolCalls: toolRows,
+    users: userRows,
+  } = useSharedTables();
   const [threadRows, threadsReady] = useTable(
     threadId === null
       ? tables.thread.where((t) => t.roomId.eq(roomId))
@@ -705,14 +711,11 @@ export const useThreadDetails = (
       ? tables.message.where((m) => m.roomId.eq(roomId))
       : tables.message.where((m) => m.threadId.eq(threadId))
   );
-  const [chunkRows] = useTable(tables.message_chunk);
   const [jobRows] = useTable(
     threadId === null
       ? tables.ai_job.where((j) => j.roomId.eq(roomId))
       : tables.ai_job.where((j) => j.threadId.eq(threadId))
   );
-  const [toolRows] = useTable(tables.tool_call);
-  const [userRows] = useTable(tables.app_user);
 
   return useMemo(() => {
     if (threadId === null) {
@@ -956,7 +959,7 @@ export const useMyProfile = (): {
   rename: (name: string) => void;
 } => {
   const { identity, isActive } = useSpacetimeDB();
-  const [users] = useTable(tables.app_user);
+  const { users } = useSharedTables();
   const updateDisplayName = useReducer(reducers.updateDisplayName);
 
   const me = useMemo(() => {
@@ -1004,8 +1007,7 @@ export const useWorkspaceMemory = (): {
   count: number;
   facts: MemoryFact[];
 } => {
-  const [entries] = useTable(tables.room_memory_entry);
-  const [rooms] = useTable(tables.room);
+  const { memories: entries, rooms } = useSharedTables();
 
   return useMemo(() => {
     const names = new Map<string, string>();

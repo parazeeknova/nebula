@@ -50,6 +50,11 @@ const room_human = table(
         algorithm: "btree",
         columns: ["room_id", "identity"],
       },
+      {
+        accessor: "by_room_only",
+        algorithm: "btree",
+        columns: ["room_id"],
+      },
     ],
     name: "room_human",
     public: true,
