@@ -79,6 +79,12 @@
   }
 }
 
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
 html,
 body {
   height: 100%;
@@ -100,7 +106,7 @@ body {
 }
 *::-webkit-scrollbar-thumb {
   background: #23252b;
-  border-radius: 8px;
+  border-radius: 0;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
