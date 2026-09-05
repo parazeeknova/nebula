@@ -1,6 +1,6 @@
 "use client";
 
-import { MenuIcon, PanelIcon, PlusIcon } from "../icons";
+import { MenuIcon, PanelIcon, PlusIcon, ShareIcon } from "../icons";
 
 interface Props {
   name: string;
@@ -9,6 +9,7 @@ interface Props {
   newThreadArmed: boolean;
   onToggleMembers: () => void;
   onNewThread: () => void;
+  onShare: () => void;
   onOpenNav: () => void;
 }
 
@@ -19,6 +20,7 @@ export const RoomHeader = ({
   newThreadArmed,
   onToggleMembers,
   onNewThread,
+  onShare,
   onOpenNav,
 }: Props) => (
   <header className="bg-chat/95 flex h-12 shrink-0 items-center gap-2 border-b border-white/[0.06] px-3 backdrop-blur">
@@ -43,6 +45,14 @@ export const RoomHeader = ({
     </span>
 
     <div className="text-ink-dim flex shrink-0 items-center gap-0.5">
+      <button
+        onClick={onShare}
+        aria-label="Share room"
+        title="Share room invite"
+        className="hover:text-ink rounded p-2 transition hover:bg-white/5"
+      >
+        <ShareIcon />
+      </button>
       <button
         onClick={onNewThread}
         aria-label="Start new thread"

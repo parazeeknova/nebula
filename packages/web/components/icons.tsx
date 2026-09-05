@@ -226,3 +226,41 @@ export const HashIcon = ({ className = "h-4 w-4" }: P) => (
     <line x1="16" x2="14" y1="3" y2="21" />
   </svg>
 );
+
+export const ShareIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.6" x2="15.4" y1="10.5" y2="6.5" />
+    <line x1="8.6" x2="15.4" y1="13.5" y2="17.5" />
+  </svg>
+);
+
+export const CopyIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <rect width="13" height="13" x="9" y="9" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+export const CheckIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);

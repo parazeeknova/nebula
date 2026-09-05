@@ -5,6 +5,7 @@ import { useSpacetimeDB } from "spacetimedb/react";
 
 import {
   useCreateRoom,
+  useJoinByLink,
   useLiveRooms,
   useMyProfile,
   usePresenceCounts,
@@ -47,6 +48,7 @@ export const WorkspaceShell = () => {
   const createRoom = useCreateRoom();
   const me = useMyProfile();
   const memory = useWorkspaceMemory();
+  const inviteId = useJoinByLink();
   const ready = connected && wsReady && roomsReady;
 
   const [openRoomIds, setOpenRoomIds] = useState<bigint[]>([]);
@@ -66,12 +68,29 @@ export const WorkspaceShell = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Open the first room once the list loads. Also recovers when the
-  // active id goes stale (e.g. the room was archived elsewhere).
   const activeRoom =
     activeRoomId === null
       ? undefined
       : rooms.find((r) => r.roomId === activeRoomId);
+
+  // An invite link overrides the default: once ready, open and select
+  // the shared room (and join it) instead of the first room.
+  useEffect(() => {
+    if (!ready || inviteId === null || activeRoom !== undefined) {
+      return;
+    }
+    const invited = rooms.find((r) => r.roomId === inviteId);
+    if (!invited) {
+      return;
+    }
+    setOpenRoomIds((prev) =>
+      prev.includes(invited.roomId) ? prev : [...prev, invited.roomId]
+    );
+    setActiveRoomId(invited.roomId);
+  }, [ready, inviteId, rooms, activeRoom]);
+
+  // Open the first room once the list loads. Also recovers when the
+  // active id goes stale (e.g. the room was archived elsewhere).
   useEffect(() => {
     if (!ready || rooms.length === 0 || activeRoom !== undefined) {
       return;
