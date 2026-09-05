@@ -81,7 +81,7 @@ export const Landing = () => (
           </a>
         </nav>
         <Link
-          href="/app"
+          href="/app?entry=1"
           className="bg-blurple hover:bg-blurple-deep ml-auto px-4 py-2 text-[13px] font-bold text-white shadow-[0_4px_18px_rgba(88,101,242,0.45)] transition"
         >
           Open app
@@ -129,7 +129,7 @@ export const Landing = () => (
           </p>
           <div className="animate-fade-up-3 mt-8 flex items-center justify-center gap-3">
             <Link
-              href="/app"
+              href="/app?entry=1"
               className="bg-blurple hover:bg-blurple-deep px-6 py-3 text-[14px] font-bold text-white shadow-[0_6px_28px_rgba(88,101,242,0.5)] transition"
             >
               Open the workspace
@@ -350,7 +350,7 @@ export const Landing = () => (
           </p>
           <div className="mt-9 flex items-center justify-center gap-3">
             <Link
-              href="/app"
+              href="/app?entry=1"
               className="bg-blurple hover:bg-blurple-deep px-7 py-3.5 text-[14px] font-bold text-white shadow-[0_6px_28px_rgba(88,101,242,0.5)] transition"
             >
               Open the workspace

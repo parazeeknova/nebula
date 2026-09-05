@@ -318,6 +318,22 @@ export const useCreateRoom = (): ((
   );
 };
 
+export const useJoinRoom = (): ((roomId: bigint) => Promise<boolean>) => {
+  const joinRoom = useReducer(reducers.joinRoom);
+  return useCallback(
+    async (roomId: bigint): Promise<boolean> => {
+      try {
+        await joinRoom({ roomId });
+        return true;
+      } catch (error) {
+        console.error("join_room failed", error);
+        return false;
+      }
+    },
+    [joinRoom]
+  );
+};
+
 /** Join on mount + heartbeat loop while the room is open. */
 export const useRoomPresence = (roomId: bigint, enabled: boolean): void => {
   const joinRoom = useReducer(reducers.joinRoom);

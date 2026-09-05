@@ -24,6 +24,10 @@ import { RoomHeader } from "./room-header";
 import { ShareModal } from "./share-modal";
 import { ThreadPane } from "./thread-pane";
 
+const MIN_THREAD_WIDTH = 340;
+const MIN_MAINFRAME_WIDTH = 380;
+const DEFAULT_THREAD_WIDTH = 420;
+
 export const RoomView = ({
   roomId,
   ready,
@@ -54,6 +58,101 @@ export const RoomView = ({
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [fallback, setFallback] = useState(false);
+
+  const [threadWidth, setThreadWidth] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("nebula_thread_width");
+      if (saved) {
+        const parsed = Math.trunc(Number(saved));
+        if (!Number.isNaN(parsed) && parsed >= MIN_THREAD_WIDTH) {
+          return parsed;
+        }
+      }
+    }
+    return DEFAULT_THREAD_WIDTH;
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ startX: number; startWidth: number } | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (isDragging) {
+      const prevCursor = document.body.style.cursor;
+      const prevUserSelect = document.body.style.userSelect;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      return () => {
+        document.body.style.cursor = prevCursor;
+        document.body.style.userSelect = prevUserSelect;
+      };
+    }
+  }, [isDragging]);
+
+  const handleResizeStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    dragStartRef.current = { startWidth: threadWidth, startX: e.clientX };
+    setIsDragging(true);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handleResizeMove = (e: React.PointerEvent) => {
+    if (!isDragging || !dragStartRef.current) {
+      return;
+    }
+    const containerWidth =
+      containerRef.current?.getBoundingClientRect().width ?? window.innerWidth;
+    const isMembersVisible = membersOpen && window.innerWidth >= 1280;
+    const membersWidth = isMembersVisible ? 240 : 0;
+    const maxAllowed = Math.max(
+      MIN_THREAD_WIDTH,
+      containerWidth - MIN_MAINFRAME_WIDTH - membersWidth
+    );
+    const deltaX = dragStartRef.current.startX - e.clientX;
+    const rawWidth = dragStartRef.current.startWidth + deltaX;
+    const clamped = Math.min(Math.max(rawWidth, MIN_THREAD_WIDTH), maxAllowed);
+    setThreadWidth(clamped);
+  };
+
+  const handleResizeEnd = (e: React.PointerEvent) => {
+    if (isDragging) {
+      setIsDragging(false);
+      dragStartRef.current = null;
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {
+        /* empty */
+      }
+      localStorage.setItem("nebula_thread_width", String(threadWidth));
+    }
+  };
+
+  const handleResizeKeyDown = (e: React.KeyboardEvent) => {
+    const containerWidth =
+      containerRef.current?.getBoundingClientRect().width ?? window.innerWidth;
+    const isMembersVisible = membersOpen && window.innerWidth >= 1280;
+    const membersWidth = isMembersVisible ? 240 : 0;
+    const maxAllowed = Math.max(
+      MIN_THREAD_WIDTH,
+      containerWidth - MIN_MAINFRAME_WIDTH - membersWidth
+    );
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      setThreadWidth((w) => {
+        const next = Math.min(w + 20, maxAllowed);
+        localStorage.setItem("nebula_thread_width", String(next));
+        return next;
+      });
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      setThreadWidth((w) => {
+        const next = Math.max(w - 20, MIN_THREAD_WIDTH);
+        localStorage.setItem("nebula_thread_width", String(next));
+        return next;
+      });
+    }
+  };
 
   const prevThreadCount = useRef(data.threads.length);
   useEffect(() => {
@@ -107,8 +206,11 @@ export const RoomView = ({
   const [activeMerge] = data.merges;
 
   return (
-    <div className="flex h-full min-h-0">
-      <div className="flex min-w-0 flex-1 flex-col">
+    <div
+      ref={containerRef}
+      className="relative flex h-full min-h-0 w-full overflow-hidden"
+    >
+      <div className="flex min-w-[380px] flex-1 flex-col overflow-hidden">
         <RoomHeader
           name={room.name}
           topic={room.topic}
@@ -182,12 +284,49 @@ export const RoomView = ({
 
       {activeThreadId !== null && (
         <>
+          {/* Desktop resize separator handle */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize thread window"
+            aria-valuenow={threadWidth}
+            aria-valuemin={MIN_THREAD_WIDTH}
+            tabIndex={0}
+            onPointerDown={handleResizeStart}
+            onPointerMove={handleResizeMove}
+            onPointerUp={handleResizeEnd}
+            onPointerCancel={handleResizeEnd}
+            onKeyDown={handleResizeKeyDown}
+            className={`group relative z-30 hidden w-2 shrink-0 cursor-col-resize items-center justify-center transition-colors outline-none select-none lg:flex ${
+              isDragging
+                ? "bg-blurple/30"
+                : "hover:bg-blurple/20 focus-visible:bg-blurple/30"
+            }`}
+            title="Drag to resize thread window (or use arrow keys)"
+          >
+            <div className="absolute inset-y-0 -right-1.5 -left-1.5 cursor-col-resize" />
+            <div
+              className={`h-8 w-1 rounded-full transition-colors ${
+                isDragging
+                  ? "bg-blurple"
+                  : "bg-white/20 group-hover:bg-white/60 group-focus-visible:bg-white/60"
+              }`}
+            />
+          </div>
+
           {/* mobile backdrop overlay */}
           <div
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs lg:hidden"
             onClick={() => setActiveThreadId(null)}
           />
-          <div className="fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-lg flex-col border-l border-white/[0.06] bg-[#07080a] shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:w-[390px] lg:shrink-0 lg:shadow-none">
+          <div
+            style={
+              {
+                "--thread-w": `${threadWidth}px`,
+              } as React.CSSProperties
+            }
+            className="fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-lg flex-col border-l border-white/[0.06] bg-[#07080a] shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:w-[var(--thread-w)] lg:shrink-0 lg:shadow-none"
+          >
             <ThreadPane
               threadId={activeThreadId}
               roomId={roomId}

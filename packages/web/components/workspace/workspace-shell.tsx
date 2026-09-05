@@ -7,6 +7,7 @@ import {
   useCreateRoom,
   useDeleteRoom,
   useJoinByLink,
+  useJoinRoom,
   useLiveRooms,
   useMyProfile,
   usePresenceCounts,
@@ -16,6 +17,7 @@ import {
 
 import { CanvasSkeleton } from "../room/placeholders";
 import { RoomView } from "../room/room-view";
+import { EntryFlowModal } from "./entry-flow-modal";
 import { Sidebar } from "./sidebar";
 
 const EmptyCanvas = ({ onCreate }: { onCreate: () => void }) => (
@@ -57,6 +59,72 @@ export const WorkspaceShell = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const pendingSelect = useRef(false);
+
+  const [showEntryFlow, setShowEntryFlow] = useState(false);
+  const joinRoom = useJoinRoom();
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const hasEntryParam =
+      params.get("entry") === "1" || params.get("entry") === "true";
+    const hasOnboarded = localStorage.getItem("nebula_onboarded") === "true";
+    if (hasEntryParam || (!hasOnboarded && rooms.length === 0)) {
+      setShowEntryFlow(true);
+    }
+  }, [rooms.length]);
+
+  const handleSaveProfile = useCallback(
+    (name: string, email: string) => {
+      if (name.trim()) {
+        me.rename(name.trim());
+        localStorage.setItem("nebula_user_name", name.trim());
+      }
+      if (email.trim()) {
+        localStorage.setItem("nebula_user_email", email.trim());
+      }
+    },
+    [me]
+  );
+
+  const handleEntryCreateRoom = useCallback(() => {
+    if (!workspace) {
+      return;
+    }
+    pendingSelect.current = true;
+    createRoom(workspace.workspaceId, `Room ${rooms.length + 1}`);
+    setShowEntryFlow(false);
+    localStorage.setItem("nebula_onboarded", "true");
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("entry");
+      window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    }
+  }, [workspace, rooms.length, createRoom]);
+
+  const handleEntryJoinRoom = useCallback(
+    async (roomId: bigint): Promise<boolean> => {
+      const ok = await joinRoom(roomId);
+      if (!ok) {
+        return false;
+      }
+      setOpenRoomIds((prev) =>
+        prev.includes(roomId) ? prev : [...prev, roomId]
+      );
+      setActiveRoomId(roomId);
+      setShowEntryFlow(false);
+      localStorage.setItem("nebula_onboarded", "true");
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("entry");
+        window.history.replaceState({}, "", url.pathname + (url.search || ""));
+      }
+      return true;
+    },
+    [joinRoom]
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -212,6 +280,31 @@ export const WorkspaceShell = () => {
           {canvas}
         </main>
       </div>
+
+      <EntryFlowModal
+        isOpen={showEntryFlow}
+        canClose={rooms.length > 0}
+        onClose={() => {
+          setShowEntryFlow(false);
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("entry");
+            window.history.replaceState(
+              {},
+              "",
+              url.pathname + (url.search || "")
+            );
+          }
+        }}
+        initialName={
+          me.displayName.startsWith("…") || me.displayName.endsWith("…")
+            ? ""
+            : me.displayName
+        }
+        onSaveProfile={handleSaveProfile}
+        onCreateRoom={handleEntryCreateRoom}
+        onJoinRoom={handleEntryJoinRoom}
+      />
     </div>
   );
 };
