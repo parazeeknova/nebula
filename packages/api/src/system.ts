@@ -24,7 +24,7 @@ export const getSystemAnswer = (prompt: string): string => {
   }
   return (
     "I route requests across three specialized agents (web research, market analysis, evaluation), " +
-    `using the ${config.model} orchestrator model with Firecrawl web search and SpacetimeDB job state. ` +
+    `using ${config.model} with ${config.fallbackModel} as fallback, Firecrawl web search and SpacetimeDB job state. ` +
     'Ask "what agents do you have" for the full list.'
   );
 };
