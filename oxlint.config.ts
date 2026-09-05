@@ -26,9 +26,9 @@ export default defineConfig({
     {
       files: [
         "packages/web/lib/spacetimedb-server.ts",
-        "packages/api/src/db.ts",
-        "packages/api/src/worker.ts",
-        "packages/api/src/seed-agents.ts",
+        "packages/web/src/server/db.ts",
+        "packages/web/src/server/worker.ts",
+        "packages/web/src/server/seed-agents.ts",
       ],
       rules: {
         // SpacetimeDB connect/subscription builders are callback-based;

@@ -496,6 +496,45 @@ const buildChatMessages = (
       };
     });
 
+const buildRoomAgents = (
+  roomAgentRows: readonly { agentId: bigint }[],
+  agentsById: ReadonlyMap<bigint, AgentRow>,
+  jobs: readonly {
+    jobId: bigint;
+    status: number;
+    taggedAgent: bigint | null | undefined;
+  }[],
+  toolsByJob: ReadonlyMap<string, { status: number; tool: string }[]>
+): Agent[] => {
+  const roomAgentIds = new Set(roomAgentRows.map((r) => r.agentId));
+  // Tools currently executing anywhere in this room. When the Neb orchestrator
+  // fans out, its running sub-agent tools appear here so each specialist shows
+  // as "working" in the sidebar for its own stage.
+  const runningTools = new Set<string>();
+  for (const j of jobs) {
+    if (j.status !== JobStatus.Running) {
+      continue;
+    }
+    for (const t of toolsByJob.get(String(j.jobId)) ?? []) {
+      if (t.status === 1) {
+        runningTools.add(t.tool);
+      }
+    }
+  }
+
+  return [...roomAgentIds]
+    .map((id) => agentsById.get(id))
+    .filter((a): a is AgentRow => Boolean(a))
+    .map((a) => {
+      const taggedRunning = jobs.some(
+        (j) => j.taggedAgent === a.agentId && j.status === JobStatus.Running
+      );
+      const runningTool = a.tools.find((tool) => runningTools.has(tool));
+      const running = taggedRunning || runningTool !== undefined;
+      return toAgent(a, running, runningTool);
+    });
+};
+
 export const useRoomData = (
   roomId: bigint,
   ticks: ReadonlyMap<string, StreamTick[]>
@@ -553,7 +592,6 @@ export const useRoomData = (
     for (const a of agentRows) {
       agentsById.set(a.agentId, a);
     }
-    const roomAgentIds = new Set(roomAgentRows.map((r) => r.agentId));
 
     const jobs = jobRows.toSorted((a, b) => (a.jobId < b.jobId ? 1 : -1));
     const latestJobByThread = new Map<string, (typeof jobs)[number]>();
@@ -571,21 +609,7 @@ export const useRoomData = (
       toolsByJob.set(key, list);
     }
 
-    const agents: Agent[] = [...roomAgentIds]
-      .map((id) => agentsById.get(id))
-      .filter((a): a is AgentRow => Boolean(a))
-      .map((a) => {
-        const running = jobs.some(
-          (j) => j.taggedAgent === a.agentId && j.status === JobStatus.Running
-        );
-        const runningTool = jobs
-          .filter(
-            (j) => j.taggedAgent === a.agentId && j.status === JobStatus.Running
-          )
-          .flatMap((j) => toolsByJob.get(String(j.jobId)) ?? [])
-          .find((t) => t.status === 1)?.tool;
-        return toAgent(a, running, runningTool);
-      });
+    const agents = buildRoomAgents(roomAgentRows, agentsById, jobs, toolsByJob);
 
     const humans = buildHumans(
       roomHumanRows,

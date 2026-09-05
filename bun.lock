@@ -14,20 +14,6 @@
         "ultracite": "7.10.8",
       },
     },
-    "packages/api": {
-      "name": "@nebula/api",
-      "version": "0.0.0",
-      "dependencies": {
-        "hono": "^4.0.0",
-        "openai": "^4.0.0",
-        "spacetimedb": "2.10.0",
-      },
-      "devDependencies": {
-        "@types/node": "26.4.1",
-        "bun-types": "^1.4.2",
-        "typescript": "7.0.2",
-      },
-    },
     "packages/spacetimedb": {
       "name": "@nebula/spacetimedb",
       "version": "0.0.0",
@@ -45,6 +31,7 @@
       "dependencies": {
         "dotenv": "^17.4.2",
         "next": "16.3.4",
+        "openai": "^4.0.0",
         "react": "19.2.8",
         "react-dom": "19.2.8",
         "spacetimedb": "2.10.0",
@@ -55,6 +42,7 @@
         "@types/react": "19.2.18",
         "@types/react-dom": "19.2.7",
         "babel-plugin-react-compiler": "1.0.0",
+        "bun-types": "^1.4.2",
         "postcss": "^8.5.28",
         "tailwindcss": "^4.3.3",
         "typescript": "7.0.2",
@@ -195,8 +183,6 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@0.2.4", "", { "dependencies": { "@emnapi/core": "^1.1.0", "@emnapi/runtime": "^1.1.0", "@tybys/wasm-util": "^0.9.0" } }, "sha512-9zESzOO5aDByvhIAsOy9TbpZ0Ur2AJbUI7UT73kcUTS2mxAMHOBaa1st/jAymNoCtvrit99kkzT1FZuXVcgfIQ=="],
-
-    "@nebula/api": ["@nebula/api@workspace:packages/api"],
 
     "@nebula/spacetimedb": ["@nebula/spacetimedb@workspace:packages/spacetimedb"],
 
@@ -761,8 +747,6 @@
     "hasown": ["hasown@2.0.4", "", { "dependencies": { "function-bind": "^1.1.2" } }, "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A=="],
 
     "headers-polyfill": ["headers-polyfill@4.0.3", "", {}, "sha512-IScLbePpkvO846sIwOtOTDjutRMWdXdJmXdMvk6gCBHxFO8d+QKOQedyZSxFTTFYRSmlgSTDtXqqq4pcenBXLQ=="],
-
-    "hono": ["hono@4.13.7", "", {}, "sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ=="],
 
     "hosted-git-info": ["hosted-git-info@9.0.3", "", { "dependencies": { "lru-cache": "^11.1.0" } }, "sha512-Hc+ghLoSt6QaYZUv0WBiIvmMDZuZZ7oaDvdH8MbfOO4lOsxdXLEvuC6ePoGs9H1X9oCLyq6+NVN0MKqD+ydxyg=="],
 

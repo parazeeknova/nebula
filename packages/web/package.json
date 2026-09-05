@@ -7,12 +7,16 @@
     "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start --port 3001",
+    "worker": "bun --env-file=../../.env.local run src/server/worker.ts",
+    "seed": "bun --env-file=../../.env.local run src/server/seed-agents.ts",
     "typecheck": "tsc --noEmit",
+    "test": "bun test tests/",
     "generate": "spacetime generate --lang typescript --out-dir src/module_bindings --module-path ../spacetimedb"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
     "next": "16.3.4",
+    "openai": "^4.0.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "spacetimedb": "2.10.0"
@@ -23,6 +27,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "babel-plugin-react-compiler": "1.0.0",
+    "bun-types": "^1.4.2",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
     "typescript": "7.0.2"
