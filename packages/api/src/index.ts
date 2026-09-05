@@ -28,6 +28,9 @@ app.post("/agent", async (c) => {
   }
 
   const jobId = crypto.randomUUID();
+  console.info(
+    `[job ${jobId}] accepted: prompt="${prompt.slice(0, 80)}" agent=${agent ?? "auto"}`
+  );
   try {
     await createJobRow(jobId, prompt, agent);
   } catch (error) {
@@ -71,3 +74,10 @@ export default {
   fetch: app.fetch,
   port: config.port,
 };
+
+console.info(
+  `[nebula-api] model=${config.model} fallback=${config.fallbackModel} ` +
+    `timeout=${config.llmTimeoutMs}ms spacetimedb=${config.spacetimedbHost}/${config.spacetimedbDb} ` +
+    `firecrawl=${config.firecrawlApiKey ? "configured" : "MISSING"} ` +
+    `generalcompute=${config.generalComputeApiKey ? "configured" : "MISSING"}`
+);

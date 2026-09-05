@@ -6,6 +6,7 @@ export const config = {
   generalComputeApiKey: process.env.GENERALCOMPUTE_API_KEY ?? "",
   generalComputeBaseUrl:
     process.env.GENERALCOMPUTE_BASE_URL ?? "https://api.generalcompute.com/v1",
+  llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 120_000),
   model: process.env.GENERALCOMPUTE_MODEL ?? "gpt-oss-120b",
   port: Number(process.env.PORT ?? 3002),
   spacetimedbDb: process.env.SPACETIMEDB_DB_NAME ?? "neb",

@@ -28,13 +28,21 @@ const recordStep = async <T>(
   run: () => Promise<T>
 ): Promise<T> => {
   const stepId = crypto.randomUUID();
+  console.info(`[job ${jobId}] step ${order}/${agent} START`);
+  const startedAt = Date.now();
   await addStepRow(stepId, jobId, agent, order, toJson(input));
   try {
     const output = await run();
     await updateStepRow(stepId, toJson(output), "completed");
+    console.info(
+      `[job ${jobId}] step ${order}/${agent} completed in ${Date.now() - startedAt}ms`
+    );
     return output;
   } catch (error) {
     await updateStepRow(stepId, undefined, "failed");
+    console.error(
+      `[job ${jobId}] step ${order}/${agent} FAILED in ${Date.now() - startedAt}ms: ${errorMessage(error)}`
+    );
     throw error;
   }
 };
@@ -205,9 +213,13 @@ const runRoutedPipeline = async (
   firstOrder = 0
 ): Promise<void> => {
   let selectedAgents: string | undefined;
+  const startedAt = Date.now();
   try {
     if (routing.agents.length === 0) {
       selectedAgents = toJson([]);
+      console.info(
+        `[job ${jobId}] no agents needed, answering directly (${Date.now() - startedAt}ms)`
+      );
       await updateJobRow(jobId, {
         finalResult: toJson({ answer: routing.answer ?? "" }),
         selectedAgents,
@@ -221,6 +233,9 @@ const runRoutedPipeline = async (
         `${routing.confidence.toFixed(2)}). ${routing.reason} ` +
         "Could you clarify whether you want web research, market analysis, or a decision evaluation?";
       selectedAgents = toJson([]);
+      console.info(
+        `[job ${jobId}] low routing confidence, asked for clarification`
+      );
       await updateJobRow(jobId, {
         finalResult: toJson({ answer }),
         selectedAgents,
@@ -230,6 +245,9 @@ const runRoutedPipeline = async (
     }
     selectedAgents = toJson(routing.agents);
     await updateJobRow(jobId, { selectedAgents, status: "running" });
+    console.info(
+      `[job ${jobId}] executing agents: [${routing.agents.join(", ")}]`
+    );
     const results = await executeAgents(jobId, routing, firstOrder);
     const synthesisInput = {
       evaluation_result: results.evaluation_result,
@@ -252,7 +270,9 @@ const runRoutedPipeline = async (
       selectedAgents,
       status: "completed",
     });
+    console.info(`[job ${jobId}] JOB COMPLETED in ${Date.now() - startedAt}ms`);
   } catch (error) {
+    console.error(`[job ${jobId}] PIPELINE FAILED: ${errorMessage(error)}`);
     await updateJobRow(jobId, {
       error: errorMessage(error),
       selectedAgents,
@@ -293,6 +313,7 @@ export const runPipeline = async (
     }
 
     if (isSystemQuery(prompt)) {
+      console.info(`[job ${jobId}] system query detected`);
       const answer = getSystemAnswer(prompt);
       const stepId = crypto.randomUUID();
       await addStepRow(stepId, jobId, "system", 1, toJson({ prompt }));
@@ -306,7 +327,12 @@ export const runPipeline = async (
       return;
     }
 
+    console.info(`[job ${jobId}] calling orchestrator for routing`);
+    const routingStartedAt = Date.now();
     const routing = await planRouting(prompt);
+    console.info(
+      `[job ${jobId}] routed in ${Date.now() - routingStartedAt}ms → route=${routing.route} agents=[${routing.agents.join(",") || "none"}] conf=${routing.confidence}`
+    );
     const orchestratorStepId = crypto.randomUUID();
     await addStepRow(
       orchestratorStepId,
@@ -318,6 +344,7 @@ export const runPipeline = async (
     await updateStepRow(orchestratorStepId, toJson(routing), "completed");
     await runRoutedPipeline(jobId, prompt, routing, 1);
   } catch (error) {
+    console.error(`[job ${jobId}] PIPELINE FAILED: ${errorMessage(error)}`);
     await updateJobRow(jobId, {
       error: errorMessage(error),
       selectedAgents,

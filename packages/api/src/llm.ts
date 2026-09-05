@@ -12,6 +12,7 @@ export const getLlmClient = (): OpenAI => {
     client = new OpenAI({
       apiKey: config.generalComputeApiKey,
       baseURL: config.generalComputeBaseUrl,
+      timeout: config.llmTimeoutMs,
     });
   }
   return client;
@@ -69,21 +70,30 @@ export const chatJson = async <T>(system: string, user: string): Promise<T> => {
   const failures: string[] = [];
   for (const useJsonMode of [true, false]) {
     for (const model of models) {
+      const startedAt = Date.now();
       try {
+        console.info(
+          `[llm] call model=${model} jsonMode=${useJsonMode ? "on" : "off"}`
+        );
         const parsed = extractJson(
           // eslint-disable-next-line no-await-in-loop -- models are tried sequentially: fallback only runs after primary fails
           await requestChat(model, system, user, useJsonMode)
         ) as T;
+        const elapsedMs = Date.now() - startedAt;
+        console.info(`[llm] ok model=${model} in ${elapsedMs}ms`);
         if (model !== models[0]) {
-          console.info(
+          console.warn(
             `[llm] primary model failed, served by fallback ${model}`
           );
         }
         return parsed;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        const elapsedMs = Date.now() - startedAt;
         failures.push(`${model}: ${message}`);
-        console.warn(`[llm] ${model} failed (${message.slice(0, 120)})`);
+        console.warn(
+          `[llm] model=${model} FAILED after ${elapsedMs}ms: ${message.slice(0, 160)}`
+        );
       }
     }
   }
