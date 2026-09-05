@@ -264,3 +264,41 @@ export const CheckIcon = ({ className = "h-4 w-4" }: P) => (
     <path d="M20 6 9 17l-5-5" />
   </svg>
 );
+
+export const PencilIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    <path d="m15 5 4 4" />
+  </svg>
+);
+
+export const TrashIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+  </svg>
+);
+
+export const MoreHorizontalIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+    <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+    <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+  </svg>
+);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { Room } from "@/lib/room-types";
 
@@ -9,10 +9,15 @@ import {
   CompassIcon,
   GearIcon,
   HashIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
   PlusIcon,
   SearchIcon,
+  TrashIcon,
   XIcon,
 } from "../icons";
+import { DeleteRoomModal } from "../room/delete-room-modal";
+import { RenameRoomModal } from "../room/rename-room-modal";
 
 interface Props {
   rooms: Room[];
@@ -24,6 +29,8 @@ interface Props {
   onSelect: (roomId: bigint) => void;
   onCreateRoom: () => void;
   onRenameMe: (name: string) => void;
+  onRenameRoom?: (roomId: bigint, newName: string) => void;
+  onDeleteRoom?: (roomId: bigint) => void;
   onToggleCollapse: () => void;
   onCloseMobile?: () => void;
 }
@@ -38,6 +45,171 @@ const rowTone = (active: boolean, unread: boolean | undefined): string => {
   return "text-ink-dim hover:text-ink font-medium hover:bg-white/[0.04]";
 };
 
+interface RoomMenuProps {
+  onDeleteRoom?: (room: Room) => void;
+  onRenameRoom?: (room: Room) => void;
+  room: Room;
+}
+
+const RoomMenu = ({ onDeleteRoom, onRenameRoom, room }: RoomMenuProps) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [menuOpen]);
+
+  if (!onRenameRoom && !onDeleteRoom) {
+    return null;
+  }
+
+  return (
+    <div className="absolute top-1/2 right-1.5 -translate-y-1/2" ref={menuRef}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setMenuOpen((curr) => !curr);
+        }}
+        className={`text-ink-faint rounded p-1 transition hover:text-white ${
+          menuOpen
+            ? "bg-white/10 opacity-100"
+            : "opacity-0 group-hover/room:opacity-100"
+        }`}
+        title="Channel options"
+        aria-label="Channel options"
+      >
+        <MoreHorizontalIcon className="h-3.5 w-3.5" />
+      </button>
+
+      {menuOpen && (
+        <div className="bg-panel-2 shadow-pop absolute top-full right-0 z-50 mt-1 w-36 border border-white/10 py-1">
+          {onRenameRoom && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                onRenameRoom(room);
+              }}
+              className="text-ink-dim hover:text-ink flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition hover:bg-white/[0.06]"
+            >
+              <PencilIcon className="h-3 w-3" />
+              <span>Rename</span>
+            </button>
+          )}
+          {onDeleteRoom && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                onDeleteRoom(room);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-rose-400 transition hover:bg-rose-500/10 hover:text-rose-300"
+            >
+              <TrashIcon className="h-3 w-3" />
+              <span>Delete</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface RoomListItemProps {
+  active: boolean;
+  collapsed: boolean;
+  online: number;
+  onDeleteRoom?: (room: Room) => void;
+  onRenameRoom?: (room: Room) => void;
+  onSelect: (roomId: bigint) => void;
+  room: Room;
+}
+
+const RoomListItem = ({
+  active,
+  collapsed,
+  online,
+  onDeleteRoom,
+  onRenameRoom,
+  onSelect,
+  room,
+}: RoomListItemProps) => (
+  <li className="group/room relative flex items-center">
+    {active && !collapsed && (
+      <span className="bg-blurple absolute top-1.5 bottom-1.5 left-0 w-1 shadow-[0_0_8px_rgba(88,101,242,0.8)]" />
+    )}
+    <button
+      onClick={() => onSelect(room.roomId)}
+      title={collapsed ? room.name : undefined}
+      className={`group relative flex min-w-0 flex-1 items-center gap-2 px-2 py-[7px] text-left text-[13.5px] transition-all duration-150 ${rowTone(active, room.unread)} ${collapsed ? "justify-center px-0 py-1.5" : ""}`}
+      aria-current={active ? "page" : undefined}
+    >
+      {collapsed ? (
+        <span
+          className={`relative grid h-9 w-9 place-items-center text-[14px] font-bold transition ${
+            active
+              ? "bg-blurple text-white shadow-[0_4px_14px_rgba(88,101,242,0.5)]"
+              : "text-ink-dim group-hover:text-ink bg-white/[0.05] group-hover:bg-white/10"
+          }`}
+        >
+          {room.name.slice(0, 1).toUpperCase()}
+          {room.unread && !active && (
+            <span className="bg-blurple absolute top-0.5 right-0.5 h-2 w-2 ring-2 ring-[#0a0b0d]" />
+          )}
+        </span>
+      ) : (
+        <>
+          <HashIcon
+            className={`h-4 w-4 shrink-0 transition ${
+              active
+                ? "text-blurple"
+                : "text-ink-ghost group-hover:text-ink-dim"
+            }`}
+          />
+          <span className="min-w-0 flex-1 truncate">{room.name}</span>
+          {room.unread && !active ? (
+            <span
+              className="bg-blurple h-2 w-2 shrink-0 shadow-[0_0_6px_rgba(88,101,242,0.8)]"
+              aria-label="Unread messages"
+            />
+          ) : (
+            <span
+              className={`text-ink-ghost hidden shrink-0 items-center gap-1 font-mono text-[10px] ${
+                onRenameRoom || onDeleteRoom
+                  ? "group-hover/room:hidden"
+                  : "group-hover/room:flex"
+              }`}
+            >
+              <span className="bg-mint h-1.5 w-1.5" />
+              {online}
+            </span>
+          )}
+        </>
+      )}
+    </button>
+
+    {!collapsed && (
+      <RoomMenu
+        room={room}
+        onRenameRoom={onRenameRoom}
+        onDeleteRoom={onDeleteRoom}
+      />
+    )}
+  </li>
+);
+
 export const Sidebar = ({
   rooms,
   activeRoomId,
@@ -47,10 +219,14 @@ export const Sidebar = ({
   onSelect,
   onCreateRoom,
   onRenameMe,
+  onRenameRoom,
+  onDeleteRoom,
   onToggleCollapse,
   onCloseMobile,
 }: Props) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [renamingRoom, setRenamingRoom] = useState<Room | null>(null);
+  const [deletingRoom, setDeletingRoom] = useState<Room | null>(null);
 
   const filteredRooms = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -176,62 +352,18 @@ export const Sidebar = ({
         )}
 
         <ul className="flex flex-col gap-[2px]">
-          {filteredRooms.map((room) => {
-            const active = room.roomId === activeRoomId;
-            const online = onlineCounts[String(room.roomId)] ?? 0;
-            return (
-              <li key={String(room.roomId)} className="relative">
-                {active && !collapsed && (
-                  <span className="bg-blurple absolute top-1.5 bottom-1.5 left-0 w-1 shadow-[0_0_8px_rgba(88,101,242,0.8)]" />
-                )}
-                <button
-                  onClick={() => onSelect(room.roomId)}
-                  title={collapsed ? room.name : undefined}
-                  className={`group relative flex w-full items-center gap-2 px-2 py-[7px] text-left text-[13.5px] transition-all duration-150 ${rowTone(active, room.unread)} ${collapsed ? "justify-center px-0 py-1.5" : ""}`}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {collapsed ? (
-                    <span
-                      className={`relative grid h-9 w-9 place-items-center text-[14px] font-bold transition ${
-                        active
-                          ? "bg-blurple text-white shadow-[0_4px_14px_rgba(88,101,242,0.5)]"
-                          : "text-ink-dim group-hover:text-ink bg-white/[0.05] group-hover:bg-white/10"
-                      }`}
-                    >
-                      {room.name.slice(0, 1).toUpperCase()}
-                      {room.unread && !active && (
-                        <span className="bg-blurple absolute top-0.5 right-0.5 h-2 w-2 ring-2 ring-[#0a0b0d]" />
-                      )}
-                    </span>
-                  ) : (
-                    <>
-                      <HashIcon
-                        className={`h-4 w-4 shrink-0 transition ${
-                          active
-                            ? "text-blurple"
-                            : "text-ink-ghost group-hover:text-ink-dim"
-                        }`}
-                      />
-                      <span className="min-w-0 flex-1 truncate">
-                        {room.name}
-                      </span>
-                      {room.unread && !active ? (
-                        <span
-                          className="bg-blurple h-2 w-2 shrink-0 shadow-[0_0_6px_rgba(88,101,242,0.8)]"
-                          aria-label="Unread messages"
-                        />
-                      ) : (
-                        <span className="text-ink-ghost hidden shrink-0 items-center gap-1 font-mono text-[10px] group-hover:flex">
-                          <span className="bg-mint h-1.5 w-1.5" />
-                          {online}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </button>
-              </li>
-            );
-          })}
+          {filteredRooms.map((room) => (
+            <RoomListItem
+              key={String(room.roomId)}
+              room={room}
+              active={room.roomId === activeRoomId}
+              collapsed={collapsed}
+              online={onlineCounts[String(room.roomId)] ?? 0}
+              onSelect={onSelect}
+              onRenameRoom={onRenameRoom ? setRenamingRoom : undefined}
+              onDeleteRoom={onDeleteRoom ? setDeletingRoom : undefined}
+            />
+          ))}
           {filteredRooms.length === 0 && !collapsed && (
             <li className="px-2 py-4 text-center">
               <p className="text-ink-ghost text-xs">No rooms found</p>
@@ -348,6 +480,28 @@ export const Sidebar = ({
           </div>
         )}
       </div>
+
+      {renamingRoom && (
+        <RenameRoomModal
+          initialName={renamingRoom.name}
+          isOpen={true}
+          onClose={() => setRenamingRoom(null)}
+          onRename={(newName) => {
+            onRenameRoom?.(renamingRoom.roomId, newName);
+          }}
+        />
+      )}
+
+      {deletingRoom && (
+        <DeleteRoomModal
+          isOpen={true}
+          roomName={deletingRoom.name}
+          onClose={() => setDeletingRoom(null)}
+          onConfirm={() => {
+            onDeleteRoom?.(deletingRoom.roomId);
+          }}
+        />
+      )}
     </aside>
   );
 };

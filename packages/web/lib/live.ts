@@ -85,12 +85,74 @@ const isFresh = (ts: { microsSinceUnixEpoch: bigint }): boolean =>
 const handleOf = (name: string): string =>
   name.split(" ")[0]?.toLowerCase() ?? name.toLowerCase();
 
+const ROOM_NAMES_KEY = "nebula:room-names";
+
+export const getCustomRoomName = (roomId: bigint): string | undefined => {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  try {
+    const raw = window.localStorage.getItem(ROOM_NAMES_KEY);
+    if (!raw) {
+      return undefined;
+    }
+    const map = JSON.parse(raw) as Record<string, string>;
+    return map[String(roomId)] || undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export const setCustomRoomName = (roomId: bigint, name: string): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    const raw = window.localStorage.getItem(ROOM_NAMES_KEY);
+    const map = (raw ? JSON.parse(raw) : {}) as Record<string, string>;
+    map[String(roomId)] = name;
+    window.localStorage.setItem(ROOM_NAMES_KEY, JSON.stringify(map));
+    window.dispatchEvent(
+      new CustomEvent("nebula:room-renamed", {
+        detail: { name, roomId: String(roomId) },
+      })
+    );
+  } catch (error) {
+    console.error("setCustomRoomName failed", error);
+  }
+};
+
+export const deleteCustomRoomName = (roomId: bigint): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    const raw = window.localStorage.getItem(ROOM_NAMES_KEY);
+    if (!raw) {
+      return;
+    }
+    const map = JSON.parse(raw) as Record<string, string>;
+    const targetKey = String(roomId);
+    const filtered = Object.fromEntries(
+      Object.entries(map).filter(([k]) => k !== targetKey)
+    );
+    window.localStorage.setItem(ROOM_NAMES_KEY, JSON.stringify(filtered));
+    window.dispatchEvent(
+      new CustomEvent("nebula:room-renamed", {
+        detail: { roomId: String(roomId) },
+      })
+    );
+  } catch (error) {
+    console.error("deleteCustomRoomName failed", error);
+  }
+};
+
 const toRoom = (r: RoomRow): Room => ({
   canvasX: r.canvasX,
   canvasY: r.canvasY,
   memoryBackend: r.memoryBackend === "honcho" ? "honcho" : "hindsight",
   memoryNamespace: r.memoryNamespace,
-  name: r.name,
+  name: getCustomRoomName(r.roomId) ?? r.name,
   roomId: r.roomId,
   status: r.status,
   topic: r.topic,
@@ -166,15 +228,51 @@ export const useWorkspace = (): {
 
 export const useLiveRooms = (): { rooms: Room[]; ready: boolean } => {
   const { rooms: rows } = useSharedTables();
+  const [renameVer, setRenameVer] = useState(0);
+
+  useEffect(() => {
+    const handleRename = () => setRenameVer((v) => v + 1);
+    window.addEventListener("nebula:room-renamed", handleRename);
+    window.addEventListener("storage", handleRename);
+    return () => {
+      window.removeEventListener("nebula:room-renamed", handleRename);
+      window.removeEventListener("storage", handleRename);
+    };
+  }, []);
   const rooms = useMemo(
     () =>
       rows
         .filter((r) => r.status === RoomStatus.Active)
         .toSorted((a, b) => (a.roomId < b.roomId ? -1 : 1))
         .map(toRoom),
-    [rows]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, renameVer]
   );
   return { ready: true, rooms };
+};
+
+export const useRenameRoom = (): ((roomId: bigint, newName: string) => void) =>
+  useCallback((roomId: bigint, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      return;
+    }
+    setCustomRoomName(roomId, trimmed);
+  }, []);
+
+export const useDeleteRoom = (): ((roomId: bigint) => Promise<void>) => {
+  const archiveRoom = useReducer(reducers.archiveRoom);
+  return useCallback(
+    async (roomId: bigint) => {
+      try {
+        deleteCustomRoomName(roomId);
+        await archiveRoom({ roomId });
+      } catch (error) {
+        console.error("archive_room failed", error);
+      }
+    },
+    [archiveRoom]
+  );
 };
 
 export const usePresenceCounts = (): Record<string, number> => {
@@ -578,6 +676,18 @@ export const useRoomData = (
     tables.merge_session.where((s) => s.roomId.eq(roomId))
   );
 
+  const [renameVer, setRenameVer] = useState(0);
+
+  useEffect(() => {
+    const handleRename = () => setRenameVer((v) => v + 1);
+    window.addEventListener("nebula:room-renamed", handleRename);
+    window.addEventListener("storage", handleRename);
+    return () => {
+      window.removeEventListener("nebula:room-renamed", handleRename);
+      window.removeEventListener("storage", handleRename);
+    };
+  }, []);
+
   const { typingIdentities } = useTypingStatus(roomId);
 
   return useMemo(() => {
@@ -723,6 +833,7 @@ export const useRoomData = (
     roomId,
     myHex,
     ticks,
+    renameVer,
     typingIdentities,
   ]);
 };

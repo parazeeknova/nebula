@@ -5,10 +5,12 @@ import { useSpacetimeDB } from "spacetimedb/react";
 
 import {
   useCreateRoom,
+  useDeleteRoom,
   useJoinByLink,
   useLiveRooms,
   useMyProfile,
   usePresenceCounts,
+  useRenameRoom,
   useWorkspace,
 } from "@/lib/live";
 
@@ -44,6 +46,8 @@ export const WorkspaceShell = () => {
   const { rooms, ready: roomsReady } = useLiveRooms();
   const onlineCounts = usePresenceCounts();
   const createRoom = useCreateRoom();
+  const renameRoom = useRenameRoom();
+  const deleteRoom = useDeleteRoom();
   const me = useMyProfile();
   const inviteId = useJoinByLink();
   const ready = connected && wsReady && roomsReady;
@@ -171,6 +175,8 @@ export const WorkspaceShell = () => {
           onSelect={select}
           onCreateRoom={handleCreate}
           onRenameMe={me.rename}
+          onRenameRoom={renameRoom}
+          onDeleteRoom={deleteRoom}
           onToggleCollapse={() => setCollapsed((c) => !c)}
         />
       </div>
@@ -192,6 +198,8 @@ export const WorkspaceShell = () => {
             onSelect={select}
             onCreateRoom={handleCreate}
             onRenameMe={me.rename}
+            onRenameRoom={renameRoom}
+            onDeleteRoom={deleteRoom}
             onToggleCollapse={() => setCollapsed((c) => !c)}
             onCloseMobile={() => setMobileNav(false)}
           />

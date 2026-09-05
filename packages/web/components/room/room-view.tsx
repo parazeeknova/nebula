@@ -5,6 +5,7 @@ import { useSpacetimeDB } from "spacetimedb/react";
 
 import {
   useMyProfile,
+  useRenameRoom,
   useRoomData,
   useRoomPresence,
   useSendMessage,
@@ -13,10 +14,12 @@ import {
 } from "@/lib/live";
 
 import { Composer } from "./composer";
+import { DeleteRoomModal } from "./delete-room-modal";
 import { MembersPanel } from "./members-panel";
 import { MergeBanner } from "./merge-banner";
 import { MessageList } from "./message-list";
 import { ChatSkeleton, PeopleSkeleton } from "./placeholders";
+import { RenameRoomModal } from "./rename-room-modal";
 import { RoomHeader } from "./room-header";
 import { ShareModal } from "./share-modal";
 import { ThreadPane } from "./thread-pane";
@@ -34,6 +37,7 @@ export const RoomView = ({
   const ticks = useStreamTicks();
   const data = useRoomData(roomId, ticks);
   const me = useMyProfile();
+  const renameRoom = useRenameRoom();
 
   const { startTyping, stopTyping } = useTypingNotifier(
     roomId,
@@ -47,6 +51,8 @@ export const RoomView = ({
   const [activeThreadId, setActiveThreadId] = useState<bigint | null>(null);
   const [membersOpen, setMembersOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [fallback, setFallback] = useState(false);
 
   const prevThreadCount = useRef(data.threads.length);
@@ -106,6 +112,8 @@ export const RoomView = ({
           onNewThread={armNewThread}
           onShare={() => setShareOpen(true)}
           onOpenNav={onOpenNav}
+          onRename={() => setRenameOpen(true)}
+          onDelete={() => setDeleteOpen(true)}
         />
 
         {activeMerge && shown && (
@@ -212,6 +220,22 @@ export const RoomView = ({
           onClose={() => setShareOpen(false)}
         />
       )}
+
+      <RenameRoomModal
+        initialName={room.name}
+        isOpen={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        onRename={(newName) => renameRoom(room.roomId, newName)}
+      />
+
+      <DeleteRoomModal
+        isOpen={deleteOpen}
+        roomName={room.name}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => {
+          /* empty */
+        }}
+      />
     </div>
   );
 };
