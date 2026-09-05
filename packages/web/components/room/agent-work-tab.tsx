@@ -6,6 +6,7 @@ import { fullText } from "@/lib/room-types";
 
 import { ChevronDownIcon, SparkleIcon } from "../icons";
 import { Avatar } from "./avatar";
+import { SpeakButton } from "./speak-button";
 
 const TOOL_STYLE: Record<number, string> = {
   0: "bg-white/5 text-ink-dim ring-white/10",
@@ -225,6 +226,15 @@ export const AgentWorkTab = ({
                       )}
 
                     <PrettyBody text={text} streaming={m.streaming} />
+
+                    {!m.streaming && text.trim().length > 0 && (
+                      <div className="flex justify-end">
+                        <SpeakButton
+                          id={`agent-msg:${String(m.messageId)}`}
+                          text={text}
+                        />
+                      </div>
+                    )}
 
                     {m.streaming && (
                       <div

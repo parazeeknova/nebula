@@ -10,6 +10,7 @@ import { ChevronLeftIcon, XIcon } from "../icons";
 import { AgentWorkTab } from "./agent-work-tab";
 import { Avatar } from "./avatar";
 import { Composer } from "./composer";
+import { SpeakButton } from "./speak-button";
 import { SteeringNotice } from "./steering-notice";
 
 export const ThreadPane = ({
@@ -99,6 +100,13 @@ export const ThreadPane = ({
               <span className="text-ink-ghost font-mono text-[10.5px]">
                 {originMessage.createdAt}
               </span>
+              {originMessage.body.trim().length > 0 && (
+                <SpeakButton
+                  id={`origin:${String(originMessage.messageId)}`}
+                  text={originMessage.body}
+                  className="ml-auto"
+                />
+              )}
             </div>
             <p className="text-ink/90 mt-2 text-[13.5px] leading-relaxed whitespace-pre-wrap">
               {originMessage.body}

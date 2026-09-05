@@ -7,6 +7,7 @@ import type { Agent, RoomHuman } from "@/lib/room-types";
 
 import { ChevronDownIcon, PlusIcon, SendIcon, SparkleIcon } from "../icons";
 import { Avatar } from "./avatar";
+import { MicButton } from "./mic-button";
 
 interface Props {
   agents: Agent[];
@@ -255,6 +256,12 @@ export const Composer = ({
     taRef.current?.focus();
   };
 
+  const appendVoiceText = (text: string) => {
+    const current = value.trim();
+    handleChange(current.length > 0 ? `${current} ${text}` : text);
+    taRef.current?.focus();
+  };
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     onStopTyping?.();
@@ -390,6 +397,7 @@ export const Composer = ({
             }
             className="text-ink placeholder:text-ink-ghost max-h-[140px] min-h-[24px] w-full resize-none bg-transparent text-[14px] leading-relaxed outline-none disabled:opacity-50"
           />
+          <MicButton connected={connected} onText={appendVoiceText} />
           <button
             type="submit"
             disabled={!value.trim() || !connected}

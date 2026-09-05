@@ -302,3 +302,29 @@ export const MoreHorizontalIcon = ({ className = "h-4 w-4" }: P) => (
     <circle cx="5" cy="12" r="1.5" fill="currentColor" />
   </svg>
 );
+
+export const VolumeIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <path d="M11 5 6 9H2v6h4l5 4z" />
+    <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+    <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+  </svg>
+);
+
+export const MicIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <rect x="9" y="2" width="6" height="12" rx="3" />
+    <path d="M5 10v1a7 7 0 0 0 14 0v-1" />
+    <path d="M12 18v4" />
+  </svg>
+);

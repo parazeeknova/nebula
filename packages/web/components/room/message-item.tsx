@@ -5,6 +5,7 @@ import { fullText } from "@/lib/room-types";
 
 import { DbIcon, SparkleIcon } from "../icons";
 import { Avatar } from "./avatar";
+import { SpeakButton } from "./speak-button";
 
 const TOOL_STYLE: Record<number, string> = {
   0: "bg-white/5 text-ink-dim ring-white/10",
@@ -70,6 +71,23 @@ const SystemMessage = ({ body }: { body: string }) => (
   </div>
 );
 
+const MaybeSpeak = ({
+  className,
+  id,
+  streaming = false,
+  text,
+}: {
+  className?: string;
+  id: string;
+  streaming?: boolean;
+  text: string;
+}) => {
+  if (streaming || text.trim().length === 0) {
+    return null;
+  }
+  return <SpeakButton id={id} text={text} className={className} />;
+};
+
 const SynthesisMessage = ({
   msg,
   text,
@@ -86,9 +104,10 @@ const SynthesisMessage = ({
         <span className="text-gold font-mono text-[11px] font-bold tracking-[0.12em] uppercase">
           Synthesized answer
         </span>
-        <span className="text-ink-ghost ml-auto font-mono text-[11px]">
+        <span className="text-ink-ghost font-mono text-[11px]">
           {msg.createdAt}
         </span>
+        <MaybeSpeak id={`synth:${String(msg.messageId)}`} text={text} />
       </div>
       <div className="flex gap-3 px-4 py-3">
         <Avatar name={msg.authorName} color={msg.authorColor} size={36} bot />
@@ -220,6 +239,12 @@ export const MessageItem = ({
           <span className="text-ink-ghost font-mono text-[11px]">
             {msg.createdAt}
           </span>
+          <MaybeSpeak
+            id={`msg:${String(msg.messageId)}`}
+            text={text}
+            streaming={msg.streaming}
+            className="ml-auto"
+          />
         </div>
 
         {msg.ticks?.some((t) => t.kind === "thinking") && msg.streaming && (
