@@ -17,8 +17,8 @@ export default __t.row({
   jobId: __t.string().primaryKey().name("job_id"),
   prompt: __t.string(),
   requestedAgent: __t.option(__t.string()).name("requested_agent"),
-  roomId: __t.option(__t.u64()).name("room_id"),
   selectedAgents: __t.option(__t.string()).name("selected_agents"),
   status: __t.string(),
   updatedAt: __t.timestamp().name("updated_at"),
+  roomId: __t.option(__t.u64()).name("room_id"),
 });

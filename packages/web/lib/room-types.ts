@@ -38,7 +38,6 @@ export interface Room {
   memoryBackend: MemoryBackend;
   memoryNamespace: string;
   status: number;
-  /** UI-only: unread marker for tabs/sidebar */
   unread?: boolean;
 }
 

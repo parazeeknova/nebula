@@ -170,12 +170,14 @@ const ai_job = table(
     created_at: t.timestamp(),
     created_by: t.identity(),
     job_id: t.u64().primaryKey().autoInc(),
-    model: t.option(t.string()),
     prompt: t.string(),
     room_id: t.u64().index("btree"),
     status: t.u8(),
     tagged_agent: t.option(t.u64()),
     thread_id: t.u64().index("btree"),
+    // Appended for migration: new columns must sit at the end and declare a default.
+    // eslint-disable-next-line sort-keys, unicorn/no-useless-undefined
+    model: t.option(t.string()).default(undefined),
   }
 );
 
@@ -289,10 +291,12 @@ const agent_job = table(
     job_id: t.string().primaryKey(),
     prompt: t.string(),
     requested_agent: t.option(t.string()),
-    room_id: t.option(t.u64()),
     selected_agents: t.option(t.string()),
     status: t.string(),
     updated_at: t.timestamp(),
+    // Appended for migration: new columns must sit at the end and declare a default.
+    // eslint-disable-next-line sort-keys, unicorn/no-useless-undefined
+    room_id: t.option(t.u64()).default(undefined),
   }
 );
 

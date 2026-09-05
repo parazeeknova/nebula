@@ -15,6 +15,9 @@ export default defineConfig({
     {
       files: ["packages/spacetimedb/src/index.ts"],
       rules: {
+        // New columns must be APPENDED at the end of a table for SpacetimeDB
+        // migrations to be additive, which conflicts with alphabetical keys.
+        "sort-keys": "off",
         // Index `.filter()` returns an iterator, so spreading into an array
         // before using `.length`/indexing/`.map()` is required, not useless.
         "unicorn/no-useless-spread": "off",

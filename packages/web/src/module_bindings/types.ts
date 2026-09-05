@@ -33,10 +33,10 @@ export const AgentJob = __t.object("AgentJob", {
   jobId: __t.string(),
   prompt: __t.string(),
   requestedAgent: __t.option(__t.string()),
-  roomId: __t.option(__t.u64()),
   selectedAgents: __t.option(__t.string()),
   status: __t.string(),
   updatedAt: __t.timestamp(),
+  roomId: __t.option(__t.u64()),
 });
 export type AgentJob = __Infer<typeof AgentJob>;
 
@@ -58,12 +58,12 @@ export const AiJob = __t.object("AiJob", {
   createdAt: __t.timestamp(),
   createdBy: __t.identity(),
   jobId: __t.u64(),
-  model: __t.option(__t.string()),
   prompt: __t.string(),
   roomId: __t.u64(),
   status: __t.u8(),
   taggedAgent: __t.option(__t.u64()),
   threadId: __t.u64(),
+  model: __t.option(__t.string()),
 });
 export type AiJob = __Infer<typeof AiJob>;
 
