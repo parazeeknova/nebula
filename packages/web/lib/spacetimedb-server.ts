@@ -4,7 +4,7 @@ import { DbConnection, tables } from "../src/module_bindings";
 import type { Room } from "../src/module_bindings/types";
 
 const HOST = process.env.SPACETIMEDB_HOST ?? "wss://maincloud.spacetimedb.com";
-const DB_NAME = process.env.SPACETIMEDB_DB_NAME ?? "neb";
+const DB_NAME = process.env.SPACETIMEDB_DB_NAME ?? "nebula";
 
 export type RoomData = Infer<typeof Room>;
 

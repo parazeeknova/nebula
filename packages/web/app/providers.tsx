@@ -10,7 +10,7 @@ import type { ErrorContext } from "../src/module_bindings";
 
 const HOST =
   process.env.NEXT_PUBLIC_SPACETIMEDB_HOST ?? "wss://maincloud.spacetimedb.com";
-const DB_NAME = process.env.NEXT_PUBLIC_SPACETIMEDB_DB_NAME ?? "neb";
+const DB_NAME = process.env.NEXT_PUBLIC_SPACETIMEDB_DB_NAME ?? "nebula";
 const TOKEN_KEY = `${HOST}/${DB_NAME}/auth_token`;
 
 const handleConnect = (
