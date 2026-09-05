@@ -726,6 +726,26 @@ export const register_worker = spacetimedb.reducer(
 
 // ── threads / messages (UI entry points) ──
 
+/**
+ * The agent a thread "belongs to": the tagged agent of its earliest job.
+ * Follow-up messages in that thread default to it, so users don't have to
+ * re-@mention the agent every turn.
+ */
+const threadAgentTag = (ctx: Ctx, thread_id: bigint): bigint | undefined => {
+  let best: bigint | undefined;
+  let bestJob: bigint | undefined;
+  for (const j of ctx.db.ai_job.thread_id.filter(thread_id)) {
+    if (j.tagged_agent === undefined) {
+      continue;
+    }
+    if (best === undefined || bestJob === undefined || j.job_id < bestJob) {
+      best = j.tagged_agent;
+      bestJob = j.job_id;
+    }
+  }
+  return best;
+};
+
 export const start_thread = spacetimedb.reducer(
   {
     angle: t.string(),
@@ -795,12 +815,19 @@ export const post_message = spacetimedb.reducer(
     }
     requireRoomMember(ctx, th.room_id);
     const body = assertNonEmpty(a.body, "body");
+    const typedMentions = a.mentions.slice(0, 8);
+    // Continue the conversation with the thread's originating agent when no
+    // agent is mentioned — no need to re-@ them every turn.
+    const defaultAgent =
+      typedMentions.length > 0 ? undefined : threadAgentTag(ctx, th.thread_id);
+    const targetAgent =
+      typedMentions.length > 0 ? typedMentions[0] : defaultAgent;
     ctx.db.message.insert({
       author: ctx.sender,
       author_agent: undefined,
       body,
       created_at: ctx.timestamp,
-      mentions: a.mentions.slice(0, 8),
+      mentions: typedMentions,
       message_id: 0n,
       role: 0,
       room_id: th.room_id,
@@ -809,10 +836,10 @@ export const post_message = spacetimedb.reducer(
     });
     ctx.db.thread.thread_id.update({
       ...th,
-      status: a.mentions.length > 0 ? 1 : 0,
+      status: targetAgent === undefined ? 0 : 1,
     });
-    // No agent mentioned => nothing runs.
-    if (a.mentions.length > 0) {
+    // No agent to run (no mention and no thread default) => nothing runs.
+    if (targetAgent !== undefined) {
       ctx.db.ai_job.insert({
         angle: "",
         created_at: ctx.timestamp,
@@ -821,7 +848,7 @@ export const post_message = spacetimedb.reducer(
         prompt: body,
         room_id: th.room_id,
         status: 0,
-        tagged_agent: a.mentions[0],
+        tagged_agent: targetAgent,
         thread_id: th.thread_id,
       });
     }
