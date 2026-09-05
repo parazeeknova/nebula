@@ -202,11 +202,7 @@ export const RoomView = ({
           } h-full shrink-0`}
         >
           {shown ? (
-            <MembersPanel
-              agents={data.agents}
-              humans={data.humans}
-              memory={data.memory}
-            />
+            <MembersPanel agents={data.agents} humans={data.humans} />
           ) : (
             <PeopleSkeleton />
           )}

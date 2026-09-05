@@ -82,11 +82,9 @@ const AgentCard = ({ agent }: { agent: Agent }) => (
 export const MembersPanel = ({
   agents,
   humans,
-  memory,
 }: {
   agents: Agent[];
   humans: RoomHuman[];
-  memory?: { count: number; latest: string[] };
 }) => {
   const online = humans.filter((h) => h.isOnline);
   const activeAgents = agents.filter((a) => a.presence === "working");
@@ -144,21 +142,6 @@ export const MembersPanel = ({
           </div>
         ))}
       </Section>
-
-      {memory !== undefined && memory.count > 0 && (
-        <Section title={`Room memory — ${memory.count}`}>
-          <ul className="flex flex-col gap-1.5 px-2">
-            {memory.latest.map((fact) => (
-              <li
-                key={fact.slice(0, 48)}
-                className="text-ink-faint line-clamp-2 bg-white/[0.04] px-2.5 py-1.5 text-[11px] leading-relaxed ring-1 ring-white/[0.06]"
-              >
-                {fact}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
     </aside>
   );
 };
