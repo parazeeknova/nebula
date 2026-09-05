@@ -15,13 +15,12 @@ import {
 
 import { CanvasSkeleton } from "../room/placeholders";
 import { RoomView } from "../room/room-view";
-import { ChromeTabs } from "./chrome-tabs";
 import { Sidebar } from "./sidebar";
 
 const EmptyCanvas = ({ onCreate }: { onCreate: () => void }) => (
   <div className="grid h-full place-items-center px-6">
     <div className="max-w-sm text-center">
-      <div className="bg-blurple-soft mx-auto grid h-16 w-16 place-items-center rounded-2xl text-2xl font-bold text-[#8b9bff]">
+      <div className="bg-blurple-soft mx-auto grid h-16 w-16 place-items-center text-2xl font-bold text-[#8b9bff]">
         N
       </div>
       <h2 className="font-display mt-4 text-xl font-bold text-white">
@@ -32,7 +31,7 @@ const EmptyCanvas = ({ onCreate }: { onCreate: () => void }) => (
       </p>
       <button
         onClick={onCreate}
-        className="bg-blurple hover:bg-blurple-deep mt-4 rounded-lg px-4 py-2 text-[14px] font-bold text-white shadow-[0_4px_14px_rgba(88,101,242,0.55)] transition"
+        className="bg-blurple hover:bg-blurple-deep mt-4 px-4 py-2 text-[14px] font-bold text-white shadow-[0_4px_14px_rgba(88,101,242,0.55)] transition"
       >
         Create a room
       </button>
@@ -125,8 +124,6 @@ export const WorkspaceShell = () => {
     setActiveRoomId(id);
   }, [rooms]);
 
-  const openRooms = rooms.filter((r) => openRoomIds.includes(r.roomId));
-
   const select = useCallback((roomId: bigint) => {
     setOpenRoomIds((prev) =>
       prev.includes(roomId) ? prev : [...prev, roomId]
@@ -134,25 +131,6 @@ export const WorkspaceShell = () => {
     setActiveRoomId(roomId);
     setMobileNav(false);
   }, []);
-
-  const close = useCallback(
-    (roomId: bigint) => {
-      setOpenRoomIds((prev) => {
-        if (prev.length === 1) {
-          return prev;
-        }
-        const next = prev.filter((id) => id !== roomId);
-        if (roomId === activeRoomId) {
-          const fallback = next.at(-1);
-          if (fallback !== undefined) {
-            setActiveRoomId(fallback);
-          }
-        }
-        return next;
-      });
-    },
-    [activeRoomId]
-  );
 
   const handleCreate = useCallback(() => {
     if (!workspace) {
@@ -226,19 +204,8 @@ export const WorkspaceShell = () => {
         </div>
       )}
 
-      {/* right pane: tabs on top + main canvas below */}
+      {/* main canvas */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <ChromeTabs
-          openRooms={openRooms}
-          activeRoomId={activeRoomId ?? 0n}
-          connected={connected}
-          onActivate={select}
-          onClose={close}
-          onNew={handleCreate}
-          onOpenNav={() => setMobileNav(true)}
-        />
-
-        {/* canvas — single active room fills it */}
         <main className="grain bg-chat relative min-h-0 min-w-0 flex-1">
           <div
             className="pointer-events-none absolute inset-x-0 top-0 h-40"

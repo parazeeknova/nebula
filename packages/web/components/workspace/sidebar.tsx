@@ -96,14 +96,14 @@ export const Sidebar = ({
           <button
             onClick={onToggleCollapse}
             title="Expand sidebar (⌘B)"
-            className="bg-blurple-soft mx-auto grid h-7 w-7 place-items-center rounded-lg text-xs font-bold text-[#8b9bff] transition hover:brightness-125"
+            className="bg-blurple-soft mx-auto grid h-7 w-7 place-items-center text-xs font-bold text-[#8b9bff] transition hover:brightness-125"
           >
             N
           </button>
         ) : (
           <>
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="bg-blurple-soft grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs font-bold text-[#8b9bff] shadow-[0_0_12px_rgba(88,101,242,0.35)]">
+              <span className="bg-blurple-soft grid h-7 w-7 shrink-0 place-items-center text-xs font-bold text-[#8b9bff] shadow-[0_0_12px_rgba(88,101,242,0.35)]">
                 N
               </span>
               <div className="flex min-w-0 flex-col">
@@ -115,7 +115,7 @@ export const Sidebar = ({
             <div className="flex items-center gap-1">
               <button
                 onClick={onToggleCollapse}
-                className="text-ink-faint hover:text-ink hidden rounded p-1.5 transition hover:bg-white/5 md:block"
+                className="text-ink-faint hover:text-ink hidden p-1.5 transition hover:bg-white/5 md:block"
                 aria-label="Collapse sidebar"
                 title="Collapse sidebar (⌘B)"
               >
@@ -124,7 +124,7 @@ export const Sidebar = ({
               {onCloseMobile ? (
                 <button
                   onClick={onCloseMobile}
-                  className="text-ink-faint hover:text-ink rounded p-1.5 transition hover:bg-white/5 md:hidden"
+                  className="text-ink-faint hover:text-ink p-1.5 transition hover:bg-white/5 md:hidden"
                   aria-label="Close sidebar"
                 >
                   <XIcon className="h-4 w-4" />
@@ -138,7 +138,7 @@ export const Sidebar = ({
       {/* search box */}
       {!collapsed && (
         <div className="px-2 pt-2.5">
-          <label className="group text-ink-faint focus-within:ring-blurple/60 focus-within:text-ink flex h-8 cursor-text items-center gap-2 rounded-md bg-black/60 px-2.5 text-[13px] ring-1 ring-white/10 transition">
+          <label className="group text-ink-faint focus-within:ring-blurple/60 focus-within:text-ink flex h-8 cursor-text items-center gap-2 bg-black/60 px-2.5 text-[13px] ring-1 ring-white/10 transition">
             <SearchIcon className="h-3.5 w-3.5 shrink-0" />
             <input
               value={searchQuery}
@@ -156,7 +156,7 @@ export const Sidebar = ({
                 <XIcon className="h-3 w-3" />
               </button>
             ) : (
-              <kbd className="text-ink-faint hidden rounded border border-white/10 bg-white/5 px-1 font-mono text-[10px] lg:block">
+              <kbd className="text-ink-faint hidden border border-white/10 bg-white/5 px-1 font-mono text-[10px] lg:block">
                 ⌘K
               </kbd>
             )}
@@ -172,7 +172,7 @@ export const Sidebar = ({
               Channels — {filteredRooms.length}
             </span>
             <button
-              className="text-ink-faint hover:text-ink rounded p-1 transition hover:bg-white/5"
+              className="text-ink-faint hover:text-ink p-1 transition hover:bg-white/5"
               aria-label="Create channel"
               title="Create channel"
               onClick={onCreateRoom}
@@ -189,17 +189,17 @@ export const Sidebar = ({
             return (
               <li key={String(room.roomId)} className="relative">
                 {active && !collapsed && (
-                  <span className="bg-blurple absolute top-1.5 bottom-1.5 left-0 w-1 rounded-r-full shadow-[0_0_8px_rgba(88,101,242,0.8)]" />
+                  <span className="bg-blurple absolute top-1.5 bottom-1.5 left-0 w-1 shadow-[0_0_8px_rgba(88,101,242,0.8)]" />
                 )}
                 <button
                   onClick={() => onSelect(room.roomId)}
                   title={collapsed ? room.name : undefined}
-                  className={`group relative flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[13.5px] transition-all duration-150 ${rowTone(active, room.unread)} ${collapsed ? "justify-center px-0 py-1.5" : ""}`}
+                  className={`group relative flex w-full items-center gap-2 px-2 py-[7px] text-left text-[13.5px] transition-all duration-150 ${rowTone(active, room.unread)} ${collapsed ? "justify-center px-0 py-1.5" : ""}`}
                   aria-current={active ? "page" : undefined}
                 >
                   {collapsed ? (
                     <span
-                      className={`relative grid h-9 w-9 place-items-center rounded-xl text-[14px] font-bold transition ${
+                      className={`relative grid h-9 w-9 place-items-center text-[14px] font-bold transition ${
                         active
                           ? "bg-blurple text-white shadow-[0_4px_14px_rgba(88,101,242,0.5)]"
                           : "text-ink-dim group-hover:text-ink bg-white/[0.05] group-hover:bg-white/10"
@@ -207,7 +207,7 @@ export const Sidebar = ({
                     >
                       {room.name.slice(0, 1).toUpperCase()}
                       {room.unread && !active && (
-                        <span className="bg-blurple absolute top-0.5 right-0.5 h-2 w-2 rounded-full ring-2 ring-[#0a0b0d]" />
+                        <span className="bg-blurple absolute top-0.5 right-0.5 h-2 w-2 ring-2 ring-[#0a0b0d]" />
                       )}
                     </span>
                   ) : (
@@ -224,12 +224,12 @@ export const Sidebar = ({
                       </span>
                       {room.unread && !active ? (
                         <span
-                          className="bg-blurple h-2 w-2 shrink-0 rounded-full shadow-[0_0_6px_rgba(88,101,242,0.8)]"
+                          className="bg-blurple h-2 w-2 shrink-0 shadow-[0_0_6px_rgba(88,101,242,0.8)]"
                           aria-label="Unread messages"
                         />
                       ) : (
                         <span className="text-ink-ghost hidden shrink-0 items-center gap-1 font-mono text-[10px] group-hover:flex">
-                          <span className="bg-mint h-1.5 w-1.5 rounded-full" />
+                          <span className="bg-mint h-1.5 w-1.5" />
                           {online}
                         </span>
                       )}
@@ -255,10 +255,10 @@ export const Sidebar = ({
             </div>
             <ul className="flex flex-col gap-[2px]">
               <li>
-                <button className="text-ink-dim hover:text-ink flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[13.5px] font-medium transition hover:bg-white/[0.04]">
+                <button className="text-ink-dim hover:text-ink flex w-full items-center gap-2 px-2 py-[7px] text-left text-[13.5px] font-medium transition hover:bg-white/[0.04]">
                   <CompassIcon className="text-ink-ghost h-4 w-4" />
                   <span className="flex-1 truncate">Overview</span>
-                  <span className="bg-blurple-soft rounded px-1.5 py-px font-mono text-[10px] font-semibold text-[#8b9bff]">
+                  <span className="bg-blurple-soft px-1.5 py-px font-mono text-[10px] font-semibold text-[#8b9bff]">
                     live
                   </span>
                 </button>
@@ -268,11 +268,11 @@ export const Sidebar = ({
                   onClick={() => setMemoryOpen((v) => !v)}
                   aria-expanded={memoryOpen}
                   aria-label="Toggle workspace memory"
-                  className="text-ink-dim hover:text-ink flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[13.5px] font-medium transition hover:bg-white/[0.04]"
+                  className="text-ink-dim hover:text-ink flex w-full items-center gap-2 px-2 py-[7px] text-left text-[13.5px] font-medium transition hover:bg-white/[0.04]"
                 >
                   <DbIcon className="text-ink-ghost h-4 w-4" />
                   <span className="flex-1 truncate">Memory</span>
-                  <span className="rounded bg-white/5 px-1.5 py-px font-mono text-[10px] text-[#8b9bff]">
+                  <span className="bg-white/5 px-1.5 py-px font-mono text-[10px] text-[#8b9bff]">
                     {memoryCount}
                   </span>
                 </button>
@@ -311,18 +311,18 @@ export const Sidebar = ({
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 py-1 max-md:hidden">
             <span className="relative" title={me.displayName}>
-              <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#5865f2] to-[#00a8fc] text-xs font-extrabold text-white">
+              <span className="grid h-9 w-9 place-items-center bg-gradient-to-br from-[#5865f2] to-[#00a8fc] text-xs font-extrabold text-white">
                 {initials}
               </span>
               <span
-                className={`border-panel-2 absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-[2.5px] ${
+                className={`border-panel-2 absolute -right-0.5 -bottom-0.5 h-3 w-3 border-[2.5px] ${
                   me.online ? "bg-mint" : "bg-ink-ghost"
                 }`}
               />
             </span>
             <button
               onClick={onToggleCollapse}
-              className="text-ink-faint hover:text-ink rotate-180 rounded p-1.5 transition hover:bg-white/5"
+              className="text-ink-faint hover:text-ink rotate-180 p-1.5 transition hover:bg-white/5"
               aria-label="Expand sidebar"
               title="Expand sidebar (⌘B)"
             >
@@ -330,13 +330,13 @@ export const Sidebar = ({
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 rounded-md px-1.5 py-1.5">
+          <div className="flex items-center gap-2 px-1.5 py-1.5">
             <span className="relative shrink-0">
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[#5865f2] to-[#00a8fc] text-xs font-extrabold text-white">
+              <span className="grid h-8 w-8 place-items-center bg-gradient-to-br from-[#5865f2] to-[#00a8fc] text-xs font-extrabold text-white">
                 {initials}
               </span>
               <span
-                className={`border-panel-2 absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-[2.5px] ${
+                className={`border-panel-2 absolute -right-0.5 -bottom-0.5 h-3 w-3 border-[2.5px] ${
                   me.online ? "bg-mint" : "bg-ink-ghost"
                 }`}
               />
@@ -357,7 +357,7 @@ export const Sidebar = ({
                     }
                   }}
                   aria-label="Display name"
-                  className="font-display text-ink ring-blurple/60 w-full rounded bg-black/60 px-1 text-[13px] font-semibold ring-1 outline-none"
+                  className="font-display text-ink ring-blurple/60 w-full bg-black/60 px-1 text-[13px] font-semibold ring-1 outline-none"
                 />
               ) : (
                 <button
@@ -376,7 +376,7 @@ export const Sidebar = ({
               </span>
             </span>
             <button
-              className="text-ink-faint hover:text-ink rounded p-1.5 transition hover:bg-white/5"
+              className="text-ink-faint hover:text-ink p-1.5 transition hover:bg-white/5"
               aria-label="Settings"
               title="Settings"
             >
@@ -384,7 +384,7 @@ export const Sidebar = ({
             </button>
             <button
               onClick={onToggleCollapse}
-              className="text-ink-faint hover:text-ink rounded p-1.5 transition hover:bg-white/5 max-md:hidden"
+              className="text-ink-faint hover:text-ink p-1.5 transition hover:bg-white/5 max-md:hidden"
               aria-label="Collapse sidebar"
               title="Collapse sidebar (⌘B)"
             >
