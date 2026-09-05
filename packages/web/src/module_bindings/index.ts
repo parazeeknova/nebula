@@ -64,6 +64,7 @@ import RecoverStaleJobsReducer from "./recover_stale_jobs_reducer";
 import RegisterAgentReducer from "./register_agent_reducer";
 import RegisterWorkerReducer from "./register_worker_reducer";
 import RemoveAgentFromRoomReducer from "./remove_agent_from_room_reducer";
+import RenameRoomReducer from "./rename_room_reducer";
 import ResolveToolCallReducer from "./resolve_tool_call_reducer";
 import SetUserStatusReducer from "./set_user_status_reducer";
 import SignalEventReducer from "./signal_event_reducer";
@@ -448,6 +449,7 @@ const reducersSchema = __reducers(
   __reducerSchema("register_agent", RegisterAgentReducer),
   __reducerSchema("register_worker", RegisterWorkerReducer),
   __reducerSchema("remove_agent_from_room", RemoveAgentFromRoomReducer),
+  __reducerSchema("rename_room", RenameRoomReducer),
   __reducerSchema("resolve_tool_call", ResolveToolCallReducer),
   __reducerSchema("set_user_status", SetUserStatusReducer),
   __reducerSchema("signal_event", SignalEventReducer),

@@ -40,5 +40,17 @@ export default defineConfig({
         "promise/prefer-await-to-callbacks": "off",
       },
     },
+    {
+      files: ["packages/worker-cf/src/**/*.ts"],
+      rules: {
+        // Job claiming and chunked answer streaming are order-dependent:
+        // parallelizing them would race claims and shuffle message chunks.
+        "no-await-in-loop": "off",
+        // Same callback-based builder pattern as the node worker.
+        "promise/avoid-new": "off",
+        "promise/prefer-await-to-callbacks": "off",
+        "promise/prefer-await-to-then": "off",
+      },
+    },
   ],
 });

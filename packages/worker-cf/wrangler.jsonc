@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nebula-agent-worker",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "triggers": {
+    "crons": ["*/2 * * * *"],
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "vars": {
+    "SPACETIMEDB_HOST": "https://maincloud.spacetimedb.com",
+    "SPACETIMEDB_DB": "nebula",
+  },
+}

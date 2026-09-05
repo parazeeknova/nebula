@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { Room } from "@/lib/room-types";
 
@@ -9,14 +10,12 @@ import {
   CompassIcon,
   HashIcon,
   MoreHorizontalIcon,
-  PencilIcon,
   PlusIcon,
   SearchIcon,
   TrashIcon,
   XIcon,
 } from "../icons";
 import { DeleteRoomModal } from "../room/delete-room-modal";
-import { RenameRoomModal } from "../room/rename-room-modal";
 
 interface Props {
   rooms: Room[];
@@ -28,7 +27,6 @@ interface Props {
   onSelect: (roomId: bigint) => void;
   onCreateRoom: () => void;
   onRenameMe: (name: string) => void;
-  onRenameRoom?: (roomId: bigint, newName: string) => void;
   onDeleteRoom?: (roomId: bigint) => void;
   onToggleCollapse: () => void;
   onCloseMobile?: () => void;
@@ -46,17 +44,29 @@ const rowTone = (active: boolean, unread: boolean | undefined): string => {
 
 interface RoomMenuProps {
   onDeleteRoom?: (room: Room) => void;
-  onRenameRoom?: (room: Room) => void;
   room: Room;
 }
 
-const RoomMenu = ({ onDeleteRoom, onRenameRoom, room }: RoomMenuProps) => {
+const RoomMenu = ({ onDeleteRoom, room }: RoomMenuProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+
+  const openMenu = () => {
+    const btn = buttonRef.current;
+    if (!btn) {
+      return;
+    }
+    const rect = btn.getBoundingClientRect();
+    // Open the menu to the LEFT of the button, aligned to its top, so it
+    // overlays the sidebar content rather than dropping below the row.
+    setPos({ left: rect.right - 144, top: rect.top });
+    setMenuOpen(true);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (buttonRef.current && !buttonRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
       }
     };
@@ -67,19 +77,24 @@ const RoomMenu = ({ onDeleteRoom, onRenameRoom, room }: RoomMenuProps) => {
     }
   }, [menuOpen]);
 
-  if (!onRenameRoom && !onDeleteRoom) {
+  if (!onDeleteRoom) {
     return null;
   }
 
   return (
-    <div className="absolute top-1/2 right-1.5 -translate-y-1/2" ref={menuRef}>
+    <>
       <button
+        ref={buttonRef}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          setMenuOpen((curr) => !curr);
+          if (menuOpen) {
+            setMenuOpen(false);
+          } else {
+            openMenu();
+          }
         }}
-        className={`text-ink-faint rounded p-1 transition hover:text-white ${
+        className={`text-ink-faint absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-1 transition hover:text-white ${
           menuOpen
             ? "bg-white/10 opacity-100"
             : "opacity-0 group-hover/room:opacity-100"
@@ -90,23 +105,13 @@ const RoomMenu = ({ onDeleteRoom, onRenameRoom, room }: RoomMenuProps) => {
         <MoreHorizontalIcon className="h-3.5 w-3.5" />
       </button>
 
-      {menuOpen && (
-        <div className="bg-panel-2 shadow-pop absolute top-full right-0 z-50 mt-1 w-36 border border-white/10 py-1">
-          {onRenameRoom && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen(false);
-                onRenameRoom(room);
-              }}
-              className="text-ink-dim hover:text-ink flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition hover:bg-white/[0.06]"
-            >
-              <PencilIcon className="h-3 w-3" />
-              <span>Rename</span>
-            </button>
-          )}
-          {onDeleteRoom && (
+      {menuOpen &&
+        pos &&
+        createPortal(
+          <div
+            className="bg-panel-2 shadow-pop fixed z-70 w-36 border border-white/10 py-1"
+            style={{ left: pos.left, top: pos.top }}
+          >
             <button
               type="button"
               onClick={(e) => {
@@ -119,10 +124,10 @@ const RoomMenu = ({ onDeleteRoom, onRenameRoom, room }: RoomMenuProps) => {
               <TrashIcon className="h-3 w-3" />
               <span>Delete</span>
             </button>
-          )}
-        </div>
-      )}
-    </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 };
 
@@ -131,7 +136,6 @@ interface RoomListItemProps {
   collapsed: boolean;
   online: number;
   onDeleteRoom?: (room: Room) => void;
-  onRenameRoom?: (room: Room) => void;
   onSelect: (roomId: bigint) => void;
   room: Room;
 }
@@ -141,7 +145,6 @@ const RoomListItem = ({
   collapsed,
   online,
   onDeleteRoom,
-  onRenameRoom,
   onSelect,
   room,
 }: RoomListItemProps) => (
@@ -152,7 +155,7 @@ const RoomListItem = ({
     <button
       onClick={() => onSelect(room.roomId)}
       title={collapsed ? room.name : undefined}
-      className={`group relative flex min-w-0 flex-1 items-center gap-2 px-2 py-[7px] text-left text-[13.5px] transition-all duration-150 ${rowTone(active, room.unread)} ${collapsed ? "justify-center px-0 py-1.5" : ""}`}
+      className={`group relative flex min-w-0 flex-1 items-center gap-2 px-2 py-1.75 text-left text-[13.5px] transition-all duration-150 ${rowTone(active, room.unread)} ${collapsed ? "justify-center px-0 py-1.5" : ""}`}
       aria-current={active ? "page" : undefined}
     >
       {collapsed ? (
@@ -160,12 +163,12 @@ const RoomListItem = ({
           className={`relative grid h-9 w-9 place-items-center text-[14px] font-bold transition ${
             active
               ? "bg-blurple text-white shadow-[0_4px_14px_rgba(88,101,242,0.5)]"
-              : "text-ink-dim group-hover:text-ink bg-white/[0.05] group-hover:bg-white/10"
+              : "text-ink-dim group-hover:text-ink bg-white/5 group-hover:bg-white/10"
           }`}
         >
           {room.name.slice(0, 1).toUpperCase()}
           {room.unread && !active && (
-            <span className="bg-blurple absolute top-0.5 right-0.5 h-2 w-2 ring-2 ring-[#0a0b0d]" />
+            <span className="bg-blurple ring-panel absolute top-0.5 right-0.5 h-2 w-2 ring-2" />
           )}
         </span>
       ) : (
@@ -188,7 +191,7 @@ const RoomListItem = ({
           ) : (
             <span
               className={`text-ink-ghost hidden shrink-0 items-center gap-1 font-mono text-[10px] ${
-                onRenameRoom || onDeleteRoom
+                onDeleteRoom
                   ? "group-hover/room:hidden"
                   : "group-hover/room:flex"
               }`}
@@ -201,13 +204,7 @@ const RoomListItem = ({
       )}
     </button>
 
-    {!collapsed && (
-      <RoomMenu
-        room={room}
-        onRenameRoom={onRenameRoom}
-        onDeleteRoom={onDeleteRoom}
-      />
-    )}
+    {!collapsed && <RoomMenu room={room} onDeleteRoom={onDeleteRoom} />}
   </li>
 );
 
@@ -220,13 +217,11 @@ export const Sidebar = ({
   onSelect,
   onCreateRoom,
   onRenameMe,
-  onRenameRoom,
   onDeleteRoom,
   onToggleCollapse,
   onCloseMobile,
 }: Props) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [renamingRoom, setRenamingRoom] = useState<Room | null>(null);
   const [deletingRoom, setDeletingRoom] = useState<Room | null>(null);
 
   const filteredRooms = useMemo(() => {
@@ -257,11 +252,11 @@ export const Sidebar = ({
 
   return (
     <aside
-      className={`${width} bg-panel/70 max-md:shadow-pop flex h-full shrink-0 flex-col border-r border-white/[0.06] backdrop-blur-md transition-[width] duration-200 ease-out select-none max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-72`}
+      className={`${width} bg-panel/70 max-md:shadow-pop flex h-full shrink-0 flex-col border-r border-white/6 backdrop-blur-md transition-[width] duration-200 ease-out select-none max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-72`}
       aria-label="Sidebar navigation"
     >
       {/* brand header aligned flush with chrome tabs */}
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/6 px-3">
         {collapsed ? (
           <button
             onClick={onToggleCollapse}
@@ -349,7 +344,7 @@ export const Sidebar = ({
           </div>
         )}
 
-        <ul className="flex flex-col gap-[2px]">
+        <ul className="flex flex-col gap-0.5">
           {filteredRooms.map((room) => (
             <RoomListItem
               key={String(room.roomId)}
@@ -358,7 +353,6 @@ export const Sidebar = ({
               collapsed={collapsed}
               online={onlineCounts[String(room.roomId)] ?? 0}
               onSelect={onSelect}
-              onRenameRoom={onRenameRoom ? setRenamingRoom : undefined}
               onDeleteRoom={onDeleteRoom ? setDeletingRoom : undefined}
             />
           ))}
@@ -376,9 +370,13 @@ export const Sidebar = ({
                 Workspace
               </span>
             </div>
-            <ul className="flex flex-col gap-[2px]">
+            <ul className="flex flex-col gap-0.5">
               <li>
-                <button className="text-ink-dim hover:text-ink flex w-full items-center gap-2 px-2 py-[7px] text-left text-[13.5px] font-medium transition hover:bg-white/[0.04]">
+                <button
+                  type="button"
+                  disabled
+                  className="text-ink-dim flex w-full cursor-not-allowed items-center gap-2 px-2 py-1.75 text-left text-[13.5px] font-medium opacity-60"
+                >
                   <CompassIcon className="text-ink-ghost h-4 w-4" />
                   <span className="flex-1 truncate">Overview</span>
                 </button>
@@ -389,7 +387,7 @@ export const Sidebar = ({
       </nav>
 
       {/* me profile card + collapse */}
-      <div className="bg-panel-2/60 shrink-0 border-t border-white/[0.06] px-2 py-2 backdrop-blur-md">
+      <div className="bg-panel-2/60 shrink-0 border-t border-white/6 px-2 py-2 backdrop-blur-md">
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 py-1 max-md:hidden">
             <span className="relative" title={me.displayName}>
@@ -469,27 +467,18 @@ export const Sidebar = ({
         )}
       </div>
 
-      {renamingRoom && (
-        <RenameRoomModal
-          initialName={renamingRoom.name}
-          isOpen={true}
-          onClose={() => setRenamingRoom(null)}
-          onRename={(newName) => {
-            onRenameRoom?.(renamingRoom.roomId, newName);
-          }}
-        />
-      )}
-
-      {deletingRoom && (
-        <DeleteRoomModal
-          isOpen={true}
-          roomName={deletingRoom.name}
-          onClose={() => setDeletingRoom(null)}
-          onConfirm={() => {
-            onDeleteRoom?.(deletingRoom.roomId);
-          }}
-        />
-      )}
+      {deletingRoom &&
+        createPortal(
+          <DeleteRoomModal
+            isOpen={true}
+            roomName={deletingRoom.name}
+            onClose={() => setDeletingRoom(null)}
+            onConfirm={() => {
+              onDeleteRoom?.(deletingRoom.roomId);
+            }}
+          />,
+          document.body
+        )}
     </aside>
   );
 };

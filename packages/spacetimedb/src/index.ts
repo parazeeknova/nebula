@@ -710,6 +710,19 @@ export const move_room = spacetimedb.reducer(
   }
 );
 
+export const rename_room = spacetimedb.reducer(
+  { name: t.string(), room_id: t.u64() },
+  (ctx, { room_id, name }) => {
+    const r = getRoom(ctx, room_id);
+    requireRoomMember(ctx, room_id);
+    const clean = name.trim().slice(0, 200);
+    if (clean.length === 0) {
+      throw new SenderError("name must not be empty");
+    }
+    ctx.db.room.room_id.update({ ...r, name: clean });
+  }
+);
+
 export const archive_room = spacetimedb.reducer(
   { room_id: t.u64() },
   (ctx, { room_id }) => {
