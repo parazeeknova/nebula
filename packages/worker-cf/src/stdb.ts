@@ -30,15 +30,41 @@ export class Stdb {
 
   async rows<T>(query: string): Promise<T[]> {
     const data = (await this.post(`/v1/database/${this.db}/sql`, query)) as {
-      rows?: Record<string, unknown>[];
+      schema?: { elements?: { name?: { some?: string } }[] };
+      rows?: unknown[][];
     }[];
-    return (data?.[0]?.rows ?? []) as T[];
+    const statement = data?.[0];
+    const columns = (statement?.schema?.elements ?? []).map(
+      (element) => element.name?.some ?? ""
+    );
+    const rows = statement?.rows ?? [];
+    return rows.map((row) => {
+      const record = {} as Record<string, unknown>;
+      for (const [index, column] of columns.entries()) {
+        if (column) {
+          record[column] = row[index];
+        }
+      }
+      return record as T;
+    });
   }
 
   async call(reducer: string, args: unknown[]): Promise<void> {
-    await this.post(
-      `/v1/database/${this.db}/call/${reducer}`,
-      JSON.stringify(args)
+    const res = await fetch(
+      `${this.host}/v1/database/${this.db}/call/${reducer}`,
+      {
+        body: JSON.stringify(args),
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }
     );
+    if (!res.ok) {
+      throw new Error(
+        `stdb call ${reducer} ${res.status}: ${truncate(await res.text(), 300)}`
+      );
+    }
   }
 }

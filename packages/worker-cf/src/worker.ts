@@ -1,3 +1,4 @@
+import { pullRoomMemory, recordMessages } from "./memory";
 import { Stdb } from "./stdb";
 import { truncate } from "./truncate";
 
@@ -7,12 +8,17 @@ export interface Env {
   SPACETIMEDB_TOKEN: string;
   OPENAI_API_KEY: string;
   OPENAI_BASE_URL?: string;
+  GENERALCOMPUTE_API_KEY?: string;
+  GENERALCOMPUTE_BASE_URL?: string;
   MODEL?: string;
   FALLBACK_MODEL?: string;
   FALLBACK_API_KEY?: string;
   FALLBACK_BASE_URL?: string;
   FIRECRAWL_API_KEY?: string;
   FIRECRAWL_BASE_URL?: string;
+  HONCHO_API_KEY?: string;
+  HONCHO_BASE_URL?: string;
+  HONCHO_WORKSPACE_ID?: string;
   CRON_SECRET?: string;
 }
 
@@ -20,10 +26,24 @@ interface AiJobRow {
   job_id: string | number;
   prompt: string;
   status: number;
-  tagged_agent: { some?: number } | null;
+  tagged_agent: unknown;
   thread_id: string | number;
   room_id: string | number;
-  model: { some?: string } | null;
+  model: unknown;
+  created_by: unknown;
+}
+
+interface RoomRow {
+  room_id: string | number;
+  memory_backend: string;
+  memory_namespace: string;
+}
+
+interface ChatRow {
+  message_id: string | number;
+  author: unknown;
+  author_agent: unknown;
+  body: string;
 }
 
 interface AgentRow {
@@ -52,8 +72,20 @@ const extractJson = (raw: string): Record<string, unknown> => {
   return JSON.parse(candidate.slice(start, end + 1)) as Record<string, unknown>;
 };
 
-const optSome = <T>(v: { some?: T } | null | undefined): T | undefined =>
-  v && typeof v === "object" && "some" in v ? (v.some ?? undefined) : undefined;
+const optSome = <T>(v: unknown): T | undefined => {
+  if (!Array.isArray(v)) {
+    return undefined;
+  }
+  const [tag, value] = v as [number, T];
+  return tag === 0 ? value : undefined;
+};
+
+const identityStr = (v: unknown): string => {
+  if (Array.isArray(v) && typeof v[0] === "string") {
+    return v[0];
+  }
+  return typeof v === "string" ? v : "";
+};
 
 const chunkSplit = (body: string, size: number): string[] => {
   const out: string[] = [];
@@ -88,6 +120,23 @@ interface ToolDef {
   };
 }
 
+interface ModelRef {
+  provider: string;
+  model: string;
+}
+
+const parseModelRef = (ref: string): ModelRef | undefined => {
+  const sep = ref.indexOf("::");
+  if (sep !== -1) {
+    const provider = ref.slice(0, sep);
+    const model = ref.slice(sep + 2);
+    if (provider === "openai" || provider === "generalcompute") {
+      return { model, provider };
+    }
+  }
+  return ref.trim().length > 0 ? { model: ref, provider: "openai" } : undefined;
+};
+
 class Llm {
   private readonly env: Env;
   private readonly model: string;
@@ -114,9 +163,31 @@ class Llm {
     return out;
   }
 
-  async chat(messages: ChatMessage[], tools?: ToolDef[]): Promise<ChatMessage> {
+  async chat(
+    messages: ChatMessage[],
+    tools?: ToolDef[],
+    modelOverride?: string
+  ): Promise<ChatMessage> {
     let lastError = "no endpoints";
-    for (const ep of this.endpoints()) {
+    const override = parseModelRef(modelOverride ?? "");
+    const endpoints = override
+      ? [
+          override.provider === "openai"
+            ? {
+                key: this.env.OPENAI_API_KEY,
+                model: override.model,
+                url: this.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
+              }
+            : {
+                key: this.env.GENERALCOMPUTE_API_KEY ?? "",
+                model: override.model,
+                url:
+                  this.env.GENERALCOMPUTE_BASE_URL ??
+                  "https://api.generalcompute.com/v1",
+              },
+        ]
+      : this.endpoints();
+    for (const ep of endpoints) {
       try {
         const res = await fetch(`${ep.url}/chat/completions`, {
           body: JSON.stringify({
@@ -314,7 +385,9 @@ const runAgentLoop = async (
   tools: ReturnType<typeof makeTools>,
   route: string,
   task: string,
-  prior: Record<string, unknown>
+  prior: Record<string, unknown>,
+  memory?: string,
+  jobModel?: string
 ): Promise<{ answer: Record<string, unknown>; calls: string[] }> => {
   const toolNames = AGENT_TOOL_SETS[route] ?? [];
   const toolDefs = toolNames
@@ -331,6 +404,9 @@ const runAgentLoop = async (
         Object.keys(prior).length > 0
           ? `Prior specialist work (capped):\n${JSON.stringify(prior).slice(0, 5000)}`
           : "",
+        memory && memory.trim().length > 0
+          ? `Room context from long-term memory (prior conversations, to ground your answer and respect established facts/preferences):\n${memory.trim().slice(0, 6000)}`
+          : "",
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -340,7 +416,7 @@ const runAgentLoop = async (
   const calls: string[] = [];
 
   for (let step = 0; step < MAX_TOOL_STEPS; step += 1) {
-    const msg = await llm.chat(messages, toolDefs);
+    const msg = await llm.chat(messages, toolDefs, jobModel);
     if (msg.tool_calls && msg.tool_calls.length > 0) {
       messages.push({
         content: msg.content ?? null,
@@ -482,87 +558,234 @@ const renderOutput = (route: string, out: Record<string, unknown>): string => {
 
 const JOB_CHUNK = 220;
 
-const processJobs = async (
-  env: Env
-): Promise<{ failed: number; processed: number }> => {
+const signalMemoryUsed = async (
+  stdb: Stdb,
+  messageId: number
+): Promise<void> => {
+  try {
+    await stdb.call("signal_event", [
+      "memory_used",
+      messageId,
+      "drawing on this room's memory",
+    ]);
+  } catch (error) {
+    console.error(`signal_event memory_used failed: ${errMsg(error)}`);
+  }
+};
+
+const loadRoomMemory = async (
+  stdb: Stdb,
+  env: Env,
+  job: AiJobRow,
+  taggedAgent: number
+): Promise<string | undefined> => {
+  try {
+    if (!env.HONCHO_API_KEY || !taggedAgent) {
+      return undefined;
+    }
+    const rooms = await stdb.rows<RoomRow>(
+      `SELECT * FROM room WHERE room_id = ${Number(job.room_id)}`
+    );
+    const [room] = rooms;
+    if (!room || room.memory_backend !== "honcho") {
+      return undefined;
+    }
+    const chats = await stdb.rows<ChatRow>(
+      `SELECT * FROM message WHERE room_id = ${Number(job.room_id)}`
+    );
+    await recordMessages(
+      env,
+      room.memory_namespace,
+      chats
+        .filter((m) => m.body.trim().length > 0)
+        .map((m) => ({
+          body: m.body,
+          messageId: Number(m.message_id),
+          peerId:
+            optSome<number>(m.author_agent) === undefined
+              ? `user_${identityStr(m.author)}`
+              : `agent_${Number(optSome<number>(m.author_agent))}`,
+        }))
+    );
+    const mem = await pullRoomMemory(
+      env,
+      room.memory_namespace,
+      job.prompt,
+      taggedAgent,
+      identityStr(job.created_by)
+    );
+    return mem.context || undefined;
+  } catch (error) {
+    console.error(`load room memory failed: ${errMsg(error)}`);
+    return undefined;
+  }
+};
+
+const writeRoomMemory = async (
+  stdb: Stdb,
+  env: Env,
+  job: AiJobRow,
+  taggedAgent: number,
+  messageId: number,
+  answer: string
+): Promise<void> => {
+  try {
+    if (!env.HONCHO_API_KEY || !taggedAgent || answer.length === 0) {
+      return;
+    }
+    const rooms = await stdb.rows<RoomRow>(
+      `SELECT * FROM room WHERE room_id = ${Number(job.room_id)}`
+    );
+    const [room] = rooms;
+    if (!room || room.memory_backend !== "honcho") {
+      return;
+    }
+    await recordMessages(env, room.memory_namespace, [
+      {
+        body: answer,
+        messageId,
+        peerId: `agent_${taggedAgent}`,
+      },
+    ]);
+    await stdb.call("push_room_memory", [
+      null,
+      Number(job.room_id),
+      answer.slice(0, 800),
+      Number(job.thread_id),
+      1,
+    ]);
+    console.log(`job ${Number(job.job_id)} wrote room memory`);
+  } catch (error) {
+    console.error(`write room memory failed: ${errMsg(error)}`);
+  }
+};
+
+interface ProcessResult {
+  errors: string[];
+  failed: number;
+  processed: number;
+}
+
+const processOneJob = async (
+  stdb: Stdb,
+  llm: Llm,
+  tools: ReturnType<typeof makeTools>,
+  env: Env,
+  job: AiJobRow
+): Promise<number> => {
+  const jobId = Number(job.job_id);
+  const agents = await stdb.rows<AgentRow>("SELECT agent_id, name FROM agent");
+  const tagged = optSome(job.tagged_agent);
+  const agentRow = agents.find(
+    (a: AgentRow) => Number(a.agent_id) === Number(tagged)
+  );
+  const firstWord = agentRow
+    ? (agentRow.name.split(" ")[0] ?? "").toLowerCase()
+    : "";
+  const route = HANDLE_TO_ROUTE[firstWord] ?? "orchestrator";
+
+  const replies = await stdb.rows<MessageRow>(
+    `SELECT * FROM message WHERE thread_id = ${Number(job.thread_id)} AND streaming = true`
+  );
+  const sorted = [...replies].toSorted(
+    (a: MessageRow, b: MessageRow) =>
+      Number(a.message_id) - Number(b.message_id)
+  );
+  const newest = sorted.at(-1);
+  const messageId = Number(newest?.message_id ?? 0);
+  if (messageId === 0) {
+    throw new Error("no streaming reply message found after claim");
+  }
+
+  await stdb.call("signal_event", [
+    "thinking",
+    messageId,
+    `Running ${firstWord || "agent"}…`,
+  ]);
+
+  const memory = await loadRoomMemory(stdb, env, job, Number(tagged ?? 0));
+  if (memory) {
+    await signalMemoryUsed(stdb, messageId);
+  }
+
+  const { answer, calls } = await runAgentLoop(
+    llm,
+    tools,
+    route,
+    job.prompt,
+    {},
+    memory,
+    optSome(job.model)
+  );
+  const finalBody = renderOutput(route, answer).trim();
+  if (finalBody.length === 0) {
+    throw new Error("agent produced an empty answer");
+  }
+
+  const deltas = chunkSplit(finalBody, JOB_CHUNK);
+  for (const [idx, delta] of deltas.entries()) {
+    await stdb.call("append_chunk", [delta, idx, messageId]);
+    await sleep(12);
+  }
+  await stdb.call("complete_job", ["", jobId, messageId]);
+  await writeRoomMemory(
+    stdb,
+    env,
+    job,
+    Number(tagged ?? 0),
+    messageId,
+    finalBody
+  );
+  console.log(
+    `job ${jobId} done via ${route}${calls.length > 0 ? ` tools=[${[...new Set(calls)].join(",")}]` : ""}`
+  );
+  return messageId;
+};
+
+const processJobs = async (env: Env): Promise<ProcessResult> => {
   const stdb = new Stdb(
     env.SPACETIMEDB_HOST,
     env.SPACETIMEDB_DB,
     env.SPACETIMEDB_TOKEN
   );
-  const llm = new Llm(env, env.MODEL ?? "gpt-5.6-luna");
+  const llm = new Llm(env, env.MODEL ?? "openai::gpt-5.6-luna");
   const tools = makeTools(env);
+
+  await stdb.call("register_worker", ["nebula-cf-worker"]).catch(() => {
+    /* empty */
+  });
 
   const jobs = await stdb.rows<AiJobRow>(
     "SELECT * FROM ai_job WHERE status = 0"
   );
+  const errors: string[] = [];
   let processed = 0;
   let failed = 0;
 
   for (const job of jobs) {
     const jobId = Number(job.job_id);
+    let messageId = 0;
     try {
       await stdb.call("claim_job", [jobId]);
-
-      const agents = await stdb.rows<AgentRow>(
-        "SELECT agent_id, name FROM agent"
-      );
-      const tagged = optSome(job.tagged_agent);
-      const agentRow = agents.find(
-        (a: AgentRow) => Number(a.agent_id) === Number(tagged)
-      );
-      const firstWord = agentRow
-        ? (agentRow.name.split(" ")[0] ?? "").toLowerCase()
-        : "";
-      const route = HANDLE_TO_ROUTE[firstWord] ?? "orchestrator";
-
-      const replies = await stdb.rows<MessageRow>(
-        `SELECT * FROM message WHERE thread_id = ${Number(job.thread_id)} AND streaming = true`
-      );
-      const sorted = [...replies].toSorted(
-        (a: MessageRow, b: MessageRow) =>
-          Number(a.message_id) - Number(b.message_id)
-      );
-      const newest = sorted.at(-1);
-      const messageId = Number(newest?.message_id ?? 0);
-      if (messageId === 0) {
-        throw new Error("no streaming reply message found after claim");
-      }
-
-      const { answer, calls } = await runAgentLoop(
-        llm,
-        tools,
-        route,
-        job.prompt,
-        {}
-      );
-      const finalBody = renderOutput(route, answer).trim();
-      if (finalBody.length === 0) {
-        throw new Error("agent produced an empty answer");
-      }
-
-      const deltas = chunkSplit(finalBody, JOB_CHUNK);
-      for (const [idx, delta] of deltas.entries()) {
-        await stdb.call("append_chunk", [messageId, delta, idx]);
-        await sleep(12);
-      }
-      await stdb.call("complete_job", [jobId, messageId, ""]);
+      messageId = await processOneJob(stdb, llm, tools, env, job);
       processed += 1;
-      console.log(
-        `job ${jobId} done via ${route}${calls.length > 0 ? ` tools=[${[...new Set(calls)].join(",")}]` : ""}`
-      );
     } catch (error) {
       failed += 1;
-      console.error(`job ${jobId} failed: ${errMsg(error)}`);
       const note = errMsg(error);
-      try {
-        await stdb.call("fail_job", [jobId, 0, note.slice(0, 400)]);
-      } catch (innerError) {
-        console.error(`job ${jobId} fail_job failed: ${errMsg(innerError)}`);
+      errors.push(
+        `job ${jobId}: ${note} | ${error instanceof Error && error.stack ? error.stack.split("\n").slice(0, 4).join(" > ") : ""}`
+      );
+      console.error(`job ${jobId} failed: ${note}`);
+      if (messageId > 0) {
+        try {
+          await stdb.call("fail_job", [note.slice(0, 400), jobId, messageId]);
+        } catch (innerError) {
+          console.error(`job ${jobId} fail_job failed: ${errMsg(innerError)}`);
+        }
       }
     }
   }
-  return { failed, processed };
+  return { errors, failed, processed };
 };
 
 export default {
