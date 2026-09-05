@@ -755,7 +755,7 @@ export const useThreadDetails = (
 
     const jobs = jobRows.filter((j) => j.threadId === threadId);
 
-    // Build one work tab per room agent
+    // Build one work tab per room agent from live data
     const agentWork: AgentWork[] = agents.map((agent) => {
       const agentMsgs = allMessages.filter(
         (m) => m.authorAgent === agent.agentId

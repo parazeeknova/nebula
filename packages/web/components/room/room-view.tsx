@@ -125,23 +125,30 @@ export const RoomView = ({
       </div>
 
       {activeThreadId !== null && (
-        <div className="w-[420px] shrink-0 max-lg:fixed max-lg:inset-0 max-lg:z-40 max-lg:w-full">
-          <ThreadPane
-            threadId={activeThreadId}
-            roomId={roomId}
-            agents={data.agents}
-            humans={data.humans}
-            onClose={() => setActiveThreadId(null)}
+        <>
+          {/* mobile backdrop overlay */}
+          <div
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs lg:hidden"
+            onClick={() => setActiveThreadId(null)}
           />
-        </div>
+          <div className="fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-lg flex-col border-l border-white/[0.06] bg-[#07080a] shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:w-[390px] lg:shrink-0 lg:shadow-none">
+            <ThreadPane
+              threadId={activeThreadId}
+              roomId={roomId}
+              agents={data.agents}
+              humans={data.humans}
+              onClose={() => setActiveThreadId(null)}
+            />
+          </div>
+        </>
       )}
 
-      <div
-        className={`${
-          membersOpen && activeThreadId === null ? "max-lg:hidden" : "hidden"
-        } shrink-0`}
-      >
-        <div className="h-full">
+      {membersOpen && (
+        <div
+          className={`${
+            activeThreadId === null ? "hidden lg:flex" : "hidden xl:flex"
+          } h-full shrink-0`}
+        >
           {shown ? (
             <MembersPanel
               agents={data.agents}
@@ -152,7 +159,7 @@ export const RoomView = ({
             <PeopleSkeleton />
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
