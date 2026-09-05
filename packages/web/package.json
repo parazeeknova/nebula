@@ -1,0 +1,26 @@
+{
+  "name": "@nebula/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "typecheck": "tsc --noEmit",
+    "generate": "spacetime generate --lang typescript --out-dir src/module_bindings --module-path ../spacetimedb"
+  },
+  "dependencies": {
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "spacetimedb": "2.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "babel-plugin-react-compiler": "1.0.0",
+    "typescript": "7.0.2"
+  }
+}

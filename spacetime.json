@@ -1,8 +1,8 @@
 {
   "dev": {
-    "run": "npm run dev"
+    "run": "bun run dev"
   },
   "database": "neb",
-  "module-path": "./spacetimedb",
+  "module-path": "./packages/spacetimedb",
   "server": "maincloud"
 }

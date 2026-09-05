@@ -2,13 +2,19 @@ node_modules
 .next
 out
 dist
+build
 *.log
+*.tsbuildinfo
 
 .DS_Store
 
 spacetime.local.json
+packages/web/.next
+packages/web/out
+packages/spacetimedb/dist
 
 # env files (never commit secrets)
 .env
 .env*.local
 .env.local
+packages/web/.env*.local
