@@ -12,6 +12,7 @@ import {
   useWorkspaceMemory,
 } from "@/lib/live";
 
+import { CanvasSkeleton } from "../room/placeholders";
 import { RoomView } from "../room/room-view";
 import { ChromeTabs } from "./chrome-tabs";
 import { Sidebar } from "./sidebar";
@@ -54,17 +55,25 @@ export const WorkspaceShell = () => {
   const [mobileNav, setMobileNav] = useState(false);
   const pendingSelect = useRef(false);
 
-  // Open the first room once the list loads.
+  // Open the first room once the list loads. Also recovers when the
+  // active id goes stale (e.g. the room was archived elsewhere).
+  const activeRoom =
+    activeRoomId === null
+      ? undefined
+      : rooms.find((r) => r.roomId === activeRoomId);
+
   useEffect(() => {
-    if (activeRoomId !== null || rooms.length === 0) {
+    if (!ready || rooms.length === 0 || activeRoom !== undefined) {
       return;
     }
     const [first] = rooms;
     if (first) {
-      setOpenRoomIds([first.roomId]);
+      setOpenRoomIds((prev) =>
+        prev.includes(first.roomId) ? prev : [...prev, first.roomId]
+      );
       setActiveRoomId(first.roomId);
     }
-  }, [rooms, activeRoomId]);
+  }, [rooms, activeRoom, ready]);
 
   // Jump to a freshly created room once it arrives over the subscription.
   useEffect(() => {
@@ -124,10 +133,24 @@ export const WorkspaceShell = () => {
     createRoom(workspace.workspaceId, `Room ${rooms.length + 1}`);
   }, [workspace, rooms.length, createRoom]);
 
-  const activeRoom =
-    activeRoomId === null
-      ? undefined
-      : rooms.find((r) => r.roomId === activeRoomId);
+  const canvas = (() => {
+    if (activeRoom) {
+      return (
+        <RoomView
+          key={String(activeRoom.roomId)}
+          roomId={activeRoom.roomId}
+          ready={ready}
+          onOpenNav={() => setMobileNav(true)}
+        />
+      );
+    }
+    // Before subscriptions deliver, show a skeleton — never the
+    // "No rooms yet" empty state, which would flash on every refresh.
+    if (!ready) {
+      return <CanvasSkeleton />;
+    }
+    return <EmptyCanvas onCreate={handleCreate} />;
+  })();
 
   return (
     <div className="bg-abyss text-ink flex h-dvh flex-col overflow-hidden">
@@ -193,16 +216,7 @@ export const WorkspaceShell = () => {
                 "radial-gradient(600px 160px at 30% 0%, rgba(88,101,242,0.12), transparent 70%)",
             }}
           />
-          {activeRoom ? (
-            <RoomView
-              key={String(activeRoom.roomId)}
-              roomId={activeRoom.roomId}
-              ready={ready}
-              onOpenNav={() => setMobileNav(true)}
-            />
-          ) : (
-            <EmptyCanvas onCreate={handleCreate} />
-          )}
+          {canvas}
         </main>
       </div>
     </div>
