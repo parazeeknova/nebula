@@ -91,12 +91,32 @@ export const MessageList = ({
     return map;
   }, [threads]);
 
-  // Contiguous runs per thread in time order. Only user/system rows are shown
-  // in the main chat — agent replies live inside the thread pane.
+  // First (origin) user message id per thread. Only origins appear in the main
+  // chat; follow-up steering messages live inside the thread pane.
+  const threadOrigins = useMemo(() => {
+    const first = new Map<string, bigint>();
+    for (const m of messages) {
+      if (m.role !== 0) {
+        continue;
+      }
+      const key = String(m.threadId);
+      const current = first.get(key);
+      if (current === undefined || m.messageId < current) {
+        first.set(key, m.messageId);
+      }
+    }
+    return first;
+  }, [messages]);
+
+  // Contiguous runs per thread in time order. The main chat only shows each
+  // thread's origin prompt (plus system rows) — agent replies and in-thread
+  // steering stay inside the thread pane.
   const groups = useMemo(() => {
     const out: ThreadGroup[] = [];
     for (const m of messages) {
-      if (m.role !== 0 && m.role !== 3) {
+      const isOrigin =
+        m.role === 0 && threadOrigins.get(String(m.threadId)) === m.messageId;
+      if (m.role !== 3 && !isOrigin) {
         continue;
       }
       const last = out.at(-1);
@@ -107,7 +127,7 @@ export const MessageList = ({
       }
     }
     return out;
-  }, [messages]);
+  }, [messages, threadOrigins]);
 
   return (
     <div
