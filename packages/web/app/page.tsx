@@ -1,20 +1,20 @@
-import { fetchPeople } from "../lib/spacetimedb-server";
-import { PersonList } from "./person-list";
+import { fetchRooms } from "../lib/spacetimedb-server";
+import { RoomList } from "./room-list";
 
 const Home = async () => {
-  let initialPeople: Awaited<ReturnType<typeof fetchPeople>> = [];
+  let initialRooms: Awaited<ReturnType<typeof fetchRooms>> = [];
 
   try {
-    initialPeople = await fetchPeople();
+    initialRooms = await fetchRooms();
   } catch {
     // Server-side fetch is best-effort: the client takes over via subscription
-    initialPeople = [];
+    initialRooms = [];
   }
 
   return (
     <main style={{ fontFamily: "system-ui, sans-serif", padding: "2rem" }}>
       <h1>SpacetimeDB Next.js App</h1>
-      <PersonList initialPeople={initialPeople} />
+      <RoomList initialRooms={initialRooms} />
     </main>
   );
 };

@@ -10,9 +10,194 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export const Person = __t.object("Person", {
-  id: __t.u64(),
+export const ActiveRooms = __t.object("ActiveRooms", {});
+export type ActiveRooms = __Infer<typeof ActiveRooms>;
+
+export const Agent = __t.object("Agent", {
+  agentId: __t.u64(),
+  workspaceId: __t.u64(),
   name: __t.string(),
+  systemPrompt: __t.string(),
+  tools: __t.array(__t.string()),
+  modelProvider: __t.string(),
+  modelName: __t.string(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
 });
-export type Person = __Infer<typeof Person>;
+export type Agent = __Infer<typeof Agent>;
+
+export const AiJob = __t.object("AiJob", {
+  jobId: __t.u64(),
+  threadId: __t.u64(),
+  roomId: __t.u64(),
+  prompt: __t.string(),
+  taggedAgent: __t.option(__t.u64()),
+  angle: __t.string(),
+  status: __t.u8(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type AiJob = __Infer<typeof AiJob>;
+
+export const AppUser = __t.object("AppUser", {
+  identity: __t.identity(),
+  displayName: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type AppUser = __Infer<typeof AppUser>;
+
+export const Exploration = __t.object("Exploration", {
+  explorationId: __t.u64(),
+  sessionId: __t.u64(),
+  jobId: __t.u64(),
+  angle: __t.string(),
+  status: __t.u8(),
+  messageId: __t.u64(),
+});
+export type Exploration = __Infer<typeof Exploration>;
+
+export const MergeLink = __t.object("MergeLink", {
+  sessionId: __t.u64(),
+  threadId: __t.u64(),
+});
+export type MergeLink = __Infer<typeof MergeLink>;
+
+export const MergeSession = __t.object("MergeSession", {
+  sessionId: __t.u64(),
+  roomId: __t.u64(),
+  status: __t.u8(),
+  finalMessageId: __t.option(__t.u64()),
+  createdAt: __t.timestamp(),
+});
+export type MergeSession = __Infer<typeof MergeSession>;
+
+export const Message = __t.object("Message", {
+  messageId: __t.u64(),
+  threadId: __t.u64(),
+  roomId: __t.u64(),
+  author: __t.identity(),
+  authorAgent: __t.option(__t.u64()),
+  body: __t.string(),
+  role: __t.u8(),
+  streaming: __t.bool(),
+  mentions: __t.array(__t.u64()),
+  createdAt: __t.timestamp(),
+});
+export type Message = __Infer<typeof Message>;
+
+export const MessageChunk = __t.object("MessageChunk", {
+  chunkId: __t.u64(),
+  messageId: __t.u64(),
+  idx: __t.u32(),
+  delta: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type MessageChunk = __Infer<typeof MessageChunk>;
+
+export const Room = __t.object("Room", {
+  roomId: __t.u64(),
+  workspaceId: __t.u64(),
+  name: __t.string(),
+  topic: __t.string(),
+  canvasX: __t.i32(),
+  canvasY: __t.i32(),
+  memoryBackend: __t.string(),
+  memoryNamespace: __t.string(),
+  status: __t.u8(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type Room = __Infer<typeof Room>;
+
+export const RoomAgent = __t.object("RoomAgent", {
+  roomId: __t.u64(),
+  agentId: __t.u64(),
+  addedAt: __t.timestamp(),
+});
+export type RoomAgent = __Infer<typeof RoomAgent>;
+
+export const RoomHuman = __t.object("RoomHuman", {
+  roomId: __t.u64(),
+  identity: __t.identity(),
+  joinedAt: __t.timestamp(),
+});
+export type RoomHuman = __Infer<typeof RoomHuman>;
+
+export const RoomMemoryEntry = __t.object("RoomMemoryEntry", {
+  memoryId: __t.u64(),
+  roomId: __t.u64(),
+  threadId: __t.u64(),
+  summary: __t.string(),
+  embeddingRef: __t.option(__t.string()),
+  weight: __t.f32(),
+  createdAt: __t.timestamp(),
+});
+export type RoomMemoryEntry = __Infer<typeof RoomMemoryEntry>;
+
+export const RoomPresence = __t.object("RoomPresence", {
+  identity: __t.identity(),
+  roomId: __t.u64(),
+  lastSeen: __t.timestamp(),
+});
+export type RoomPresence = __Infer<typeof RoomPresence>;
+
+export const SnapshotTimer = __t.object("SnapshotTimer", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+  workspaceId: __t.u64(),
+});
+export type SnapshotTimer = __Infer<typeof SnapshotTimer>;
+
+export const StreamEvent = __t.object("StreamEvent", {
+  messageId: __t.u64(),
+  kind: __t.string(),
+  payload: __t.string(),
+  createdAt: __t.timestamp(),
+});
+export type StreamEvent = __Infer<typeof StreamEvent>;
+
+export const Thread = __t.object("Thread", {
+  threadId: __t.u64(),
+  roomId: __t.u64(),
+  title: __t.string(),
+  createdBy: __t.identity(),
+  status: __t.u8(),
+  mergeSessionId: __t.option(__t.u64()),
+  createdAt: __t.timestamp(),
+});
+export type Thread = __Infer<typeof Thread>;
+
+export const ToolCall = __t.object("ToolCall", {
+  callId: __t.u64(),
+  jobId: __t.u64(),
+  tool: __t.string(),
+  input: __t.string(),
+  output: __t.option(__t.string()),
+  status: __t.u8(),
+  createdAt: __t.timestamp(),
+});
+export type ToolCall = __Infer<typeof ToolCall>;
+
+export const WorkerAllowlist = __t.object("WorkerAllowlist", {
+  identity: __t.identity(),
+  label: __t.string(),
+  addedAt: __t.timestamp(),
+});
+export type WorkerAllowlist = __Infer<typeof WorkerAllowlist>;
+
+export const Workspace = __t.object("Workspace", {
+  workspaceId: __t.u64(),
+  name: __t.string(),
+  createdBy: __t.identity(),
+  createdAt: __t.timestamp(),
+});
+export type Workspace = __Infer<typeof Workspace>;
+
+export const WorkspaceSnapshot = __t.object("WorkspaceSnapshot", {
+  snapshotId: __t.u64(),
+  workspaceId: __t.u64(),
+  payload: __t.string(),
+  generatedAt: __t.timestamp(),
+});
+export type WorkspaceSnapshot = __Infer<typeof WorkspaceSnapshot>;
 

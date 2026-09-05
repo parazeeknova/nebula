@@ -11,6 +11,7 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  id: __t.u64().primaryKey(),
-  name: __t.string(),
+  roomId: __t.u64().name("room_id"),
+  agentId: __t.u64().name("agent_id"),
+  addedAt: __t.timestamp().name("added_at"),
 });

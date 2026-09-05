@@ -1,19 +1,19 @@
 import type { Infer } from "spacetimedb";
 
 import { DbConnection, tables } from "../src/module_bindings";
-import type { Person } from "../src/module_bindings/types";
+import type { Room } from "../src/module_bindings/types";
 
 const HOST = process.env.SPACETIMEDB_HOST ?? "wss://maincloud.spacetimedb.com";
 const DB_NAME = process.env.SPACETIMEDB_DB_NAME ?? "neb";
 
-export type PersonData = Infer<typeof Person>;
+export type RoomData = Infer<typeof Room>;
 
-// Fetches the initial list of people from SpacetimeDB.
+// Fetches the initial list of rooms from SpacetimeDB.
 // Designed for use in Next.js Server Components.
-// Establishes a WebSocket connection, subscribes to the person table,
+// Establishes a WebSocket connection, subscribes to the room table,
 // waits for the initial data, then disconnects.
 // Wraps the callback-based subscription API in a Promise (see oxlint override).
-export const fetchPeople = (): Promise<PersonData[]> =>
+export const fetchRooms = (): Promise<RoomData[]> =>
   new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
       reject(new Error("SpacetimeDB connection timeout"));
@@ -27,16 +27,16 @@ export const fetchPeople = (): Promise<PersonData[]> =>
           .subscriptionBuilder()
           .onApplied(() => {
             clearTimeout(timeoutId);
-            const people = [...conn.db.person.iter()];
+            const rooms = [...conn.db.room.iter()];
             conn.disconnect();
-            resolve(people);
+            resolve(rooms);
           })
           .onError((ctx) => {
             clearTimeout(timeoutId);
             conn.disconnect();
             reject(ctx.event ?? new Error("Subscription error"));
           })
-          .subscribe(tables.person);
+          .subscribe(tables.room);
       })
       .onConnectError((_ctx, error) => {
         clearTimeout(timeoutId);
