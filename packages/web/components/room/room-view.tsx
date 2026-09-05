@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSpacetimeDB } from "spacetimedb/react";
 
 import {
@@ -16,6 +16,7 @@ import { MergeBanner } from "./merge-banner";
 import { MessageList } from "./message-list";
 import { ChatSkeleton, PeopleSkeleton } from "./placeholders";
 import { RoomHeader } from "./room-header";
+import { ThreadPane } from "./thread-pane";
 
 export const RoomView = ({
   roomId,
@@ -35,8 +36,20 @@ export const RoomView = ({
   );
   useRoomPresence(roomId, connected && ready);
 
+  const [activeThreadId, setActiveThreadId] = useState<bigint | null>(null);
   const [membersOpen, setMembersOpen] = useState(true);
   const [fallback, setFallback] = useState(false);
+
+  const prevThreadCount = useRef(data.threads.length);
+  useEffect(() => {
+    if (data.threads.length > prevThreadCount.current) {
+      const [newest] = data.threads;
+      if (newest) {
+        setActiveThreadId(newest.threadId);
+      }
+    }
+    prevThreadCount.current = data.threads.length;
+  }, [data.threads]);
 
   // Show skeleton placeholders until the subscription is live —
   // with a fallback timeout so a dead backend never traps the UI.
@@ -94,6 +107,8 @@ export const RoomView = ({
             messages={data.messages}
             agents={data.agents}
             roomName={room.name}
+            threadSummaries={data.threadSummaries}
+            onOpenThread={(id) => setActiveThreadId(id)}
           />
         ) : (
           <ChatSkeleton roomName={room.name} />
@@ -104,11 +119,28 @@ export const RoomView = ({
           humans={data.humans}
           typingNames={typingNames}
           connected={connected}
+          variant="room"
           onSend={send}
         />
       </div>
 
-      <div className={`${membersOpen ? "max-lg:hidden" : "hidden"} shrink-0`}>
+      {activeThreadId !== null && (
+        <div className="w-[420px] shrink-0 max-lg:fixed max-lg:inset-0 max-lg:z-40 max-lg:w-full">
+          <ThreadPane
+            threadId={activeThreadId}
+            roomId={roomId}
+            agents={data.agents}
+            humans={data.humans}
+            onClose={() => setActiveThreadId(null)}
+          />
+        </div>
+      )}
+
+      <div
+        className={`${
+          membersOpen && activeThreadId === null ? "max-lg:hidden" : "hidden"
+        } shrink-0`}
+      >
         <div className="h-full">
           {shown ? (
             <MembersPanel

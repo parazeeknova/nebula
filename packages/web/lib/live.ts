@@ -19,12 +19,14 @@ import {
 } from "./room-types";
 import type {
   Agent,
+  AgentWork,
   ChatMessage,
   MergeBanner as MergeInfo,
   Room,
   RoomHuman,
   StreamTick,
   Thread,
+  ThreadView,
   ToolCallInfo,
 } from "./room-types";
 
@@ -283,6 +285,8 @@ export const useStreamTicks = (): ReadonlyMap<string, StreamTick[]> => {
 export interface RoomData {
   room: Room | undefined;
   thread: Thread | null;
+  threads: Thread[];
+  threadSummaries: Map<string, ThreadView>;
   messages: ChatMessage[];
   agents: Agent[];
   humans: RoomHuman[];
@@ -309,6 +313,150 @@ const toAgent = (
   tools: [...a.tools],
   workspaceId: a.workspaceId,
 });
+
+const buildHumans = (
+  roomHumanRows: readonly { identity: Identity }[],
+  users: Map<string, AppUser>,
+  presenceRows: readonly {
+    identity: Identity;
+    lastSeen: { microsSinceUnixEpoch: bigint };
+  }[],
+  roomId: bigint,
+  myHex: string,
+  presence: Map<string, string>
+): RoomHuman[] =>
+  roomHumanRows.map((h) => {
+    const hex = hexOf(h.identity);
+    const user = users.get(hex);
+    const inRoom = presence.get(hex) === String(roomId);
+    const presRow = presenceRows.find((p) => hexOf(p.identity) === hex);
+    const lastSeenMins =
+      presRow === undefined
+        ? Number.POSITIVE_INFINITY
+        : Math.max(
+            0,
+            Math.round((Date.now() - microsOf(presRow.lastSeen)) / 60_000)
+          );
+    return {
+      color: colorFor(hex),
+      displayName: user?.displayName ?? `${hex.slice(0, 8)}…`,
+      hex,
+      identity: h.identity,
+      isOnline: inRoom && presRow !== undefined && isFresh(presRow.lastSeen),
+      isTyping: false,
+      lastSeenMins,
+      roleLabel: hex === myHex ? "you" : "member",
+    };
+  });
+
+const buildThreadSummaries = (
+  threadRows: readonly ThreadRow[],
+  messageRows: readonly {
+    authorAgent?: bigint;
+    messageId: bigint;
+    roomId: bigint;
+    streaming: boolean;
+    threadId: bigint;
+  }[],
+  agentsById: Map<bigint, AgentRow>
+): Map<string, ThreadView> => {
+  const summaries = new Map<string, ThreadView>();
+  const messagesByThread = new Map<string, (typeof messageRows)[number][]>();
+  for (const m of messageRows) {
+    const key = String(m.threadId);
+    const list = messagesByThread.get(key) ?? [];
+    list.push(m);
+    messagesByThread.set(key, list);
+  }
+
+  for (const t of threadRows) {
+    const key = String(t.threadId);
+    const list = messagesByThread.get(key) ?? [];
+    const replyCount = Math.max(0, list.length - 1);
+    const agentMsgs = list.filter((m) => m.authorAgent !== undefined);
+    const lastAgentId = agentMsgs.at(-1)?.authorAgent;
+    const lastAgent =
+      lastAgentId === undefined ? undefined : agentsById.get(lastAgentId);
+    const isStreaming = list.some((m) => m.streaming);
+    summaries.set(key, {
+      lastAgentName: lastAgent?.name,
+      replyCount,
+      streaming: isStreaming,
+      thread: toThread(t),
+    });
+  }
+  return summaries;
+};
+
+const buildChatMessages = (
+  messageRows: readonly {
+    author: Identity;
+    authorAgent?: bigint;
+    body: string;
+    createdAt: { microsSinceUnixEpoch: bigint };
+    mentions: readonly bigint[];
+    messageId: bigint;
+    role: number;
+    roomId: bigint;
+    streaming: boolean;
+    threadId: bigint;
+  }[],
+  agentsById: Map<bigint, AgentRow>,
+  users: Map<string, AppUser>,
+  latestJobByThread: Map<string, { jobId: bigint; status: number }>,
+  toolsByJob: Map<string, { status: number; tool: string }[]>,
+  chunksByMessage: Map<string, { delta: string; idx: number }[]>,
+  ticks: ReadonlyMap<string, StreamTick[]>
+): ChatMessage[] =>
+  messageRows
+    .toSorted((a, b) => (a.messageId < b.messageId ? -1 : 1))
+    .map((m) => {
+      const hex = hexOf(m.author);
+      const agent =
+        m.authorAgent === undefined ? undefined : agentsById.get(m.authorAgent);
+      const user = users.get(hex);
+      const job = latestJobByThread.get(String(m.threadId));
+      const tool =
+        job === undefined
+          ? undefined
+          : (toolsByJob.get(String(job.jobId)) ?? []).toSorted((a, b) =>
+              a.tool < b.tool ? -1 : 1
+            )[0];
+      const toolCall: ToolCallInfo | undefined =
+        tool === undefined
+          ? undefined
+          : {
+              input: undefined,
+              output: undefined,
+              status: tool.status,
+              tool: tool.tool,
+            };
+      return {
+        author: m.author,
+        authorAgent: m.authorAgent ?? null,
+        authorColor: agent
+          ? colorFor(`agent:${String(agent.agentId)}`)
+          : colorFor(hex),
+        authorHex: hex,
+        authorName: agent
+          ? agent.name
+          : (user?.displayName ?? `${hex.slice(0, 8)}…`),
+        body: m.body,
+        chunks: (chunksByMessage.get(String(m.messageId)) ?? [])
+          .toSorted((a, b) => a.idx - b.idx)
+          .map((c) => ({ delta: c.delta, idx: c.idx })),
+        createdAt: timeLabel(m.createdAt),
+        jobStatus: job?.status,
+        mentions: [...m.mentions],
+        messageId: m.messageId,
+        role: m.role,
+        roomId: m.roomId,
+        streaming: m.streaming,
+        threadId: m.threadId,
+        ticks: ticks.get(String(m.messageId)),
+        toolCall,
+      };
+    });
 
 export const useRoomData = (
   roomId: bigint,
@@ -350,6 +498,7 @@ export const useRoomData = (
     const room = roomRows[0] ? toRoom(roomRows[0]) : undefined;
     const threadRow = pickActiveThread(threadRows);
     const thread = threadRow ? toThread(threadRow) : null;
+    const threads = threadRows.toSorted(byCreatedDesc).map(toThread);
 
     const users = new Map<string, AppUser>();
     for (const u of userRows) {
@@ -398,29 +547,14 @@ export const useRoomData = (
         return toAgent(a, running, runningTool);
       });
 
-    const humans: RoomHuman[] = roomHumanRows.map((h) => {
-      const hex = hexOf(h.identity);
-      const user = users.get(hex);
-      const inRoom = presence.get(hex) === String(roomId);
-      const presRow = presenceRows.find((p) => hexOf(p.identity) === hex);
-      const lastSeenMins =
-        presRow === undefined
-          ? Number.POSITIVE_INFINITY
-          : Math.max(
-              0,
-              Math.round((Date.now() - microsOf(presRow.lastSeen)) / 60_000)
-            );
-      return {
-        color: colorFor(hex),
-        displayName: user?.displayName ?? `${hex.slice(0, 8)}…`,
-        hex,
-        identity: h.identity,
-        isOnline: inRoom && presRow !== undefined && isFresh(presRow.lastSeen),
-        isTyping: false,
-        lastSeenMins,
-        roleLabel: hex === myHex ? "you" : "member",
-      };
-    });
+    const humans = buildHumans(
+      roomHumanRows,
+      users,
+      presenceRows,
+      roomId,
+      myHex,
+      presence
+    );
 
     const chunksByMessage = new Map<string, { delta: string; idx: number }[]>();
     for (const c of chunkRows) {
@@ -430,61 +564,21 @@ export const useRoomData = (
       chunksByMessage.set(key, list);
     }
 
-    const messages: ChatMessage[] = messageRows
-      .filter((m) => threadRow !== null && m.threadId === threadRow.threadId)
-      .toSorted((a, b) => (a.messageId < b.messageId ? -1 : 1))
-      .map((m) => {
-        const hex = hexOf(m.author);
-        const agent =
-          m.authorAgent === undefined
-            ? undefined
-            : agentsById.get(m.authorAgent);
-        const user = users.get(hex);
-        const job =
-          threadRow === null
-            ? undefined
-            : latestJobByThread.get(String(threadRow.threadId));
-        const tool =
-          job === undefined
-            ? undefined
-            : (toolsByJob.get(String(job.jobId)) ?? []).toSorted((a, b) =>
-                a.tool < b.tool ? -1 : 1
-              )[0];
-        const toolCall: ToolCallInfo | undefined =
-          tool === undefined
-            ? undefined
-            : {
-                input: undefined,
-                output: undefined,
-                status: tool.status,
-                tool: tool.tool,
-              };
-        return {
-          author: m.author,
-          authorAgent: m.authorAgent ?? null,
-          authorColor: agent
-            ? colorFor(`agent:${String(agent.agentId)}`)
-            : colorFor(hex),
-          authorHex: hex,
-          authorName: agent
-            ? agent.name
-            : (user?.displayName ?? `${hex.slice(0, 8)}…`),
-          body: m.body,
-          chunks: (chunksByMessage.get(String(m.messageId)) ?? [])
-            .toSorted((a, b) => a.idx - b.idx)
-            .map((c) => ({ delta: c.delta, idx: c.idx })),
-          createdAt: timeLabel(m.createdAt),
-          jobStatus: job?.status,
-          mentions: [...m.mentions],
-          messageId: m.messageId,
-          role: m.role,
-          roomId: m.roomId,
-          streaming: m.streaming,
-          threadId: m.threadId,
-          ticks: ticks.get(String(m.messageId)),
-          toolCall,
-        };
-      });
+    const threadSummaries = buildThreadSummaries(
+      threadRows,
+      messageRows,
+      agentsById
+    );
+
+    const messages = buildChatMessages(
+      messageRows,
+      agentsById,
+      users,
+      latestJobByThread,
+      toolsByJob,
+      chunksByMessage,
+      ticks
+    );
 
     const explorationsBySession = new Map<
       string,
@@ -521,6 +615,8 @@ export const useRoomData = (
       ready: roomsReady && threadsReady,
       room,
       thread,
+      threadSummaries,
+      threads,
     };
   }, [
     roomRows,
@@ -545,48 +641,225 @@ export const useRoomData = (
   ]);
 };
 
+export interface ThreadDetails {
+  thread: Thread | undefined;
+  originMessage: ChatMessage | undefined;
+  steeringNotices: ChatMessage[];
+  agentWork: AgentWork[];
+  allMessages: ChatMessage[];
+  ready: boolean;
+}
+
+export const useThreadDetails = (
+  threadId: bigint | null,
+  roomId: bigint,
+  agents: Agent[],
+  ticks: ReadonlyMap<string, StreamTick[]>
+): ThreadDetails => {
+  const [threadRows, threadsReady] = useTable(
+    threadId === null
+      ? tables.thread.where((t) => t.roomId.eq(roomId))
+      : tables.thread.where((t) => t.threadId.eq(threadId))
+  );
+  const [messageRows, msgsReady] = useTable(
+    threadId === null
+      ? tables.message.where((m) => m.roomId.eq(roomId))
+      : tables.message.where((m) => m.threadId.eq(threadId))
+  );
+  const [chunkRows] = useTable(tables.message_chunk);
+  const [jobRows] = useTable(
+    threadId === null
+      ? tables.ai_job.where((j) => j.roomId.eq(roomId))
+      : tables.ai_job.where((j) => j.threadId.eq(threadId))
+  );
+  const [toolRows] = useTable(tables.tool_call);
+  const [userRows] = useTable(tables.app_user);
+
+  return useMemo(() => {
+    if (threadId === null) {
+      return {
+        agentWork: [],
+        allMessages: [],
+        originMessage: undefined,
+        ready: false,
+        steeringNotices: [],
+        thread: undefined,
+      };
+    }
+
+    const threadRow = threadRows.find((t) => t.threadId === threadId);
+    const thread = threadRow ? toThread(threadRow) : undefined;
+
+    const users = new Map<string, AppUser>();
+    for (const u of userRows) {
+      users.set(hexOf(u.identity), u);
+    }
+
+    const chunksByMessage = new Map<string, { delta: string; idx: number }[]>();
+    for (const c of chunkRows) {
+      const key = String(c.messageId);
+      const list = chunksByMessage.get(key) ?? [];
+      list.push({ delta: c.delta, idx: c.idx });
+      chunksByMessage.set(key, list);
+    }
+
+    const toolsByJob = new Map<string, { status: number; tool: string }[]>();
+    for (const t of toolRows) {
+      const key = String(t.jobId);
+      const list = toolsByJob.get(key) ?? [];
+      list.push({ status: t.status, tool: t.tool });
+      toolsByJob.set(key, list);
+    }
+
+    const allMessages: ChatMessage[] = messageRows
+      .filter((m) => m.threadId === threadId)
+      .toSorted((a, b) => (a.messageId < b.messageId ? -1 : 1))
+      .map((m) => {
+        const hex = hexOf(m.author);
+        const agent =
+          m.authorAgent === undefined
+            ? undefined
+            : agents.find((a) => a.agentId === m.authorAgent);
+        const user = users.get(hex);
+        return {
+          author: m.author,
+          authorAgent: m.authorAgent ?? null,
+          authorColor: agent
+            ? colorFor(`agent:${String(agent.agentId)}`)
+            : colorFor(hex),
+          authorHex: hex,
+          authorName: agent
+            ? agent.name
+            : (user?.displayName ?? `${hex.slice(0, 8)}…`),
+          body: m.body,
+          chunks: (chunksByMessage.get(String(m.messageId)) ?? [])
+            .toSorted((a, b) => a.idx - b.idx)
+            .map((c) => ({ delta: c.delta, idx: c.idx })),
+          createdAt: timeLabel(m.createdAt),
+          jobStatus: undefined,
+          mentions: [...m.mentions],
+          messageId: m.messageId,
+          role: m.role,
+          roomId: m.roomId,
+          streaming: m.streaming,
+          threadId: m.threadId,
+          ticks: ticks.get(String(m.messageId)),
+          toolCall: undefined,
+        };
+      });
+
+    const originMessage = allMessages.find((m) => m.role === 0);
+    const steeringNotices = allMessages.filter(
+      (m) => m.role === 0 && m.messageId !== originMessage?.messageId
+    );
+
+    const jobs = jobRows.filter((j) => j.threadId === threadId);
+
+    // Build one work tab per room agent
+    const agentWork: AgentWork[] = agents.map((agent) => {
+      const agentMsgs = allMessages.filter(
+        (m) => m.authorAgent === agent.agentId
+      );
+      const agentJobs = jobs.filter(
+        (j) => j.taggedAgent === agent.agentId || j.taggedAgent === undefined
+      );
+
+      let status: "working" | "done" | "failed" | "idle" = "idle";
+      if (
+        agentMsgs.some((m) => m.streaming) ||
+        agentJobs.some(
+          (j) => j.status === JobStatus.Running || j.status === JobStatus.Queued
+        )
+      ) {
+        status = "working";
+      } else if (agentJobs.some((j) => j.status === JobStatus.Failed)) {
+        status = "failed";
+      } else if (
+        agentMsgs.length > 0 ||
+        agentJobs.some((j) => j.status === JobStatus.Done)
+      ) {
+        status = "done";
+      }
+
+      const lastMsg = agentMsgs.at(-1);
+      let preview = "Ready to assist";
+      if (lastMsg) {
+        preview = (
+          lastMsg.body || lastMsg.chunks.map((c) => c.delta).join("")
+        ).slice(0, 140);
+      } else if (status === "working") {
+        preview = "Working on response…";
+      }
+
+      return {
+        agent,
+        jobs: agentJobs.map((j) => ({
+          angle: j.angle,
+          jobId: j.jobId,
+          prompt: j.prompt,
+          status: j.status,
+          taggedAgent: j.taggedAgent,
+        })),
+        messages: agentMsgs,
+        preview,
+        status,
+      };
+    });
+
+    return {
+      agentWork,
+      allMessages,
+      originMessage,
+      ready: threadsReady && msgsReady,
+      steeringNotices,
+      thread,
+    };
+  }, [
+    threadId,
+    threadRows,
+    threadsReady,
+    messageRows,
+    msgsReady,
+    chunkRows,
+    jobRows,
+    toolRows,
+    userRows,
+    agents,
+    ticks,
+  ]);
+};
+
 export const useSendMessage = (
   roomId: bigint,
-  thread: Thread | null
+  _thread: Thread | null
 ): {
   send: (body: string, mentions: bigint[]) => void;
   armNewThread: () => void;
   newThreadArmed: boolean;
 } => {
   const startThread = useReducer(reducers.startThread);
-  const postMessage = useReducer(reducers.postMessage);
+
   const [freshArmed, setFreshArmed] = useState(false);
 
   const send = useCallback(
     (body: string, mentions: bigint[]) => {
-      const usable =
-        thread !== null &&
-        (thread.status === ThreadStatus.Open ||
-          thread.status === ThreadStatus.Streaming);
-      const target = freshArmed || !usable ? null : thread;
       const run = async (): Promise<void> => {
         try {
-          await (target === null
-            ? startThread({
-                angle: "",
-                prompt: body,
-                roomId,
-                taggedAgent: mentions[0],
-                title: body.slice(0, 60),
-              })
-            : postMessage({
-                body,
-                mentions,
-                threadId: target.threadId,
-              }));
+          await startThread({
+            angle: "",
+            prompt: body,
+            roomId,
+            taggedAgent: mentions[0],
+            title: body.slice(0, 60),
+          });
         } catch (error) {
-          console.error("send failed", error);
+          console.error("start_thread failed", error);
         }
       };
       void run();
       setFreshArmed(false);
     },
-    [roomId, thread, freshArmed, startThread, postMessage]
+    [roomId, startThread]
   );
 
   const armNewThread = useCallback(() => {
@@ -594,6 +867,32 @@ export const useSendMessage = (
   }, []);
 
   return { armNewThread, newThreadArmed: freshArmed, send };
+};
+
+export const useSteerThread = (
+  threadId: bigint | null
+): ((body: string, mentions: bigint[]) => void) => {
+  const postMessage = useReducer(reducers.postMessage);
+  return useCallback(
+    (body: string, mentions: bigint[]) => {
+      if (threadId === null) {
+        return;
+      }
+      const run = async (): Promise<void> => {
+        try {
+          await postMessage({
+            body,
+            mentions,
+            threadId,
+          });
+        } catch (error) {
+          console.error("post_message steer failed", error);
+        }
+      };
+      void run();
+    },
+    [threadId, postMessage]
+  );
 };
 
 export const useMyIdentity = (): { hex: string; identity: Identity | null } => {

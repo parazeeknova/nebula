@@ -47,12 +47,16 @@ export const ChromeTabs = ({
     if (e.key === "ArrowRight") {
       e.preventDefault();
       const nextRoom = openRooms[(idx + 1) % openRooms.length];
-      if (nextRoom) {onActivate(nextRoom.roomId);}
+      if (nextRoom) {
+        onActivate(nextRoom.roomId);
+      }
     } else if (e.key === "ArrowLeft") {
       e.preventDefault();
       const prevRoom =
         openRooms[(idx - 1 + openRooms.length) % openRooms.length];
-      if (prevRoom) {onActivate(prevRoom.roomId);}
+      if (prevRoom) {
+        onActivate(prevRoom.roomId);
+      }
     } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       onActivate(roomId);

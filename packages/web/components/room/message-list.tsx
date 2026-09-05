@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
-import type { Agent, ChatMessage } from "@/lib/room-types";
+import type { Agent, ChatMessage, ThreadView } from "@/lib/room-types";
 
 import { MessageItem } from "./message-item";
 
@@ -10,10 +10,14 @@ export const MessageList = ({
   messages,
   agents,
   roomName,
+  threadSummaries,
+  onOpenThread,
 }: {
   messages: ChatMessage[];
   agents: Agent[];
   roomName: string;
+  threadSummaries?: Map<string, ThreadView>;
+  onOpenThread?: (threadId: bigint) => void;
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -65,14 +69,28 @@ export const MessageList = ({
         </p>
       </div>
 
-      {messages.map((m, i) => (
-        <MessageItem
-          key={String(m.messageId)}
-          msg={m}
-          agents={agents}
-          compact={compactFlags[i] ?? false}
-        />
-      ))}
+      {messages.map((m, i) => {
+        const summary = threadSummaries?.get(String(m.threadId));
+        const threadFooter =
+          m.role === 0 && onOpenThread
+            ? {
+                lastAgentName: summary?.lastAgentName,
+                onOpen: () => onOpenThread(m.threadId),
+                replyCount: summary?.replyCount ?? 0,
+                streaming: summary?.streaming,
+              }
+            : undefined;
+
+        return (
+          <MessageItem
+            key={String(m.messageId)}
+            msg={m}
+            agents={agents}
+            compact={compactFlags[i] ?? false}
+            threadFooter={threadFooter}
+          />
+        );
+      })}
       <div ref={bottomRef} />
     </div>
   );
