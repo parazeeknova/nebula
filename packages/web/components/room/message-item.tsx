@@ -3,7 +3,7 @@
 import type { Agent, ChatMessage } from "@/lib/room-types";
 import { fullText } from "@/lib/room-types";
 
-import { SparkleIcon } from "../icons";
+import { DbIcon, SparkleIcon } from "../icons";
 import { Avatar } from "./avatar";
 
 const TOOL_STYLE: Record<number, string> = {
@@ -104,6 +104,19 @@ const SynthesisMessage = ({
     </div>
   </div>
 );
+
+const MemoryIndicator = ({ msg }: { msg: ChatMessage }) => {
+  if (!msg.ticks?.some((t) => t.kind === "memory_used")) {
+    return null;
+  }
+  return (
+    <span className="text-blurple mt-1 inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold tracking-wide">
+      <DbIcon className="h-3 w-3" />
+      {msg.ticks.find((t) => t.kind === "memory_used")?.payload ??
+        "Used room memory"}
+    </span>
+  );
+};
 
 const ThreadFooterButton = ({ info }: { info: ThreadFooterInfo }) => (
   <div className="mt-2.5">
@@ -216,6 +229,8 @@ export const MessageItem = ({
               "Thinking…"}
           </p>
         )}
+
+        <MemoryIndicator msg={msg} />
 
         <p className="text-ink/90 mt-0.5 text-[14px] leading-relaxed break-words whitespace-pre-wrap">
           {renderBody(text, agents)}

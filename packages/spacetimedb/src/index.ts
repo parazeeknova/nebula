@@ -941,7 +941,13 @@ export const signal_event = spacetimedb.reducer(
     if (!msg) {
       throw new SenderError("message not found");
     }
-    const allowed = ["thinking", "typing", "tool_start", "tool_end"];
+    const allowed = [
+      "thinking",
+      "typing",
+      "tool_start",
+      "tool_end",
+      "memory_used",
+    ];
     if (!allowed.includes(a.kind)) {
       throw new SenderError("unknown event kind");
     }

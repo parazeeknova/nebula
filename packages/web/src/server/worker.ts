@@ -421,6 +421,14 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
       payload: `Running ${handle}…`,
     });
 
+    if (memory && memory.trim().length > 0) {
+      await conn.reducers.signalEvent({
+        kind: "memory_used",
+        messageId,
+        payload: "drawing on this room's memory",
+      });
+    }
+
     const answer = await produceAnswer(
       conn,
       messageId,

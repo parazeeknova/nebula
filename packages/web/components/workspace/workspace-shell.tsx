@@ -10,7 +10,6 @@ import {
   useMyProfile,
   usePresenceCounts,
   useWorkspace,
-  useWorkspaceMemory,
 } from "@/lib/live";
 
 import { CanvasSkeleton } from "../room/placeholders";
@@ -46,7 +45,6 @@ export const WorkspaceShell = () => {
   const onlineCounts = usePresenceCounts();
   const createRoom = useCreateRoom();
   const me = useMyProfile();
-  const memory = useWorkspaceMemory();
   const inviteId = useJoinByLink();
   const ready = connected && wsReady && roomsReady;
 
@@ -170,8 +168,6 @@ export const WorkspaceShell = () => {
           collapsed={collapsed}
           onlineCounts={onlineCounts}
           me={me}
-          memoryCount={memory.count}
-          memoryFacts={memory.facts}
           onSelect={select}
           onCreateRoom={handleCreate}
           onRenameMe={me.rename}
@@ -193,8 +189,6 @@ export const WorkspaceShell = () => {
             collapsed={false}
             onlineCounts={onlineCounts}
             me={me}
-            memoryCount={memory.count}
-            memoryFacts={memory.facts}
             onSelect={select}
             onCreateRoom={handleCreate}
             onRenameMe={me.rename}

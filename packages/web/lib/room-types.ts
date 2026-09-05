@@ -74,7 +74,7 @@ export interface MessageChunk {
 }
 
 export interface StreamTick {
-  kind: "thinking" | "typing" | "tool_start" | "tool_end";
+  kind: "thinking" | "typing" | "tool_start" | "tool_end" | "memory_used";
   payload: string;
 }
 

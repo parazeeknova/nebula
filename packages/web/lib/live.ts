@@ -301,7 +301,8 @@ export const useStreamTicks = (): ReadonlyMap<string, StreamTick[]> => {
         kind !== "thinking" &&
         kind !== "typing" &&
         kind !== "tool_start" &&
-        kind !== "tool_end"
+        kind !== "tool_end" &&
+        kind !== "memory_used"
       ) {
         return;
       }
@@ -1018,34 +1019,4 @@ export const useMyProfile = (): {
     online: isActive,
     rename,
   };
-};
-
-export interface MemoryFact {
-  roomId: bigint;
-  roomName: string;
-  summary: string;
-}
-
-/** Workspace-wide compounding memory: live count + latest facts. */
-export const useWorkspaceMemory = (): {
-  count: number;
-  facts: MemoryFact[];
-} => {
-  const { memories: entries, rooms } = useSharedTables();
-
-  return useMemo(() => {
-    const names = new Map<string, string>();
-    for (const r of rooms) {
-      names.set(String(r.roomId), r.name);
-    }
-    const facts = entries
-      .toSorted(byCreatedDesc)
-      .slice(0, 8)
-      .map((e) => ({
-        roomId: e.roomId,
-        roomName: names.get(String(e.roomId)) ?? "archived room",
-        summary: e.summary,
-      }));
-    return { count: entries.length, facts };
-  }, [entries, rooms]);
 };

@@ -2,13 +2,11 @@
 
 import { useMemo, useState } from "react";
 
-import type { MemoryFact } from "@/lib/live";
 import type { Room } from "@/lib/room-types";
 
 import {
   ChevronLeftIcon,
   CompassIcon,
-  DbIcon,
   GearIcon,
   HashIcon,
   PlusIcon,
@@ -23,8 +21,6 @@ interface Props {
   collapsed: boolean;
   onlineCounts: Record<string, number>;
   me: { displayName: string; online: boolean };
-  memoryCount: number;
-  memoryFacts: MemoryFact[];
   onSelect: (roomId: bigint) => void;
   onCreateRoom: () => void;
   onRenameMe: (name: string) => void;
@@ -48,8 +44,6 @@ export const Sidebar = ({
   collapsed,
   onlineCounts,
   me,
-  memoryCount,
-  memoryFacts,
   onSelect,
   onCreateRoom,
   onRenameMe,
@@ -67,7 +61,6 @@ export const Sidebar = ({
   }, [rooms, searchQuery]);
 
   const width = collapsed ? "w-[68px]" : "w-60";
-  const [memoryOpen, setMemoryOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState("");
 
@@ -262,44 +255,6 @@ export const Sidebar = ({
                     live
                   </span>
                 </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setMemoryOpen((v) => !v)}
-                  aria-expanded={memoryOpen}
-                  aria-label="Toggle workspace memory"
-                  className="text-ink-dim hover:text-ink flex w-full items-center gap-2 px-2 py-[7px] text-left text-[13.5px] font-medium transition hover:bg-white/[0.04]"
-                >
-                  <DbIcon className="text-ink-ghost h-4 w-4" />
-                  <span className="flex-1 truncate">Memory</span>
-                  <span className="bg-white/5 px-1.5 py-px font-mono text-[10px] text-[#8b9bff]">
-                    {memoryCount}
-                  </span>
-                </button>
-                {memoryOpen && (
-                  <ul className="mt-1 mb-1 ml-7 flex flex-col gap-1.5 border-l border-white/10 pl-3">
-                    {memoryFacts.length === 0 ? (
-                      <li className="text-ink-faint py-1 text-[11px]">
-                        No facts yet — they compound here as rooms conclude
-                        threads.
-                      </li>
-                    ) : (
-                      memoryFacts.map((fact) => (
-                        <li
-                          key={`${String(fact.roomId)}-${fact.summary.slice(0, 32)}`}
-                          className="min-w-0"
-                        >
-                          <p className="truncate font-mono text-[10px] text-[#8b9bff]">
-                            {fact.roomName}
-                          </p>
-                          <p className="text-ink-faint line-clamp-2 text-[11px] leading-relaxed">
-                            {fact.summary}
-                          </p>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                )}
               </li>
             </ul>
           </>
