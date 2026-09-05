@@ -592,6 +592,29 @@ export const Composer = ({
           </span>
         </div>
 
+        {previewUrls.length > 0 && (
+          <div className="mb-1.5 flex flex-wrap gap-2 px-1">
+            {previewUrls.map((url, i) => (
+              <div key={url} className="relative h-14 w-14">
+                {/* oxlint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`Attachment ${i + 1}`}
+                  className="h-14 w-14 border border-white/10 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImage(i)}
+                  aria-label={`Remove attachment ${i + 1}`}
+                  className="text-ink-ghost absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center border border-white/20 bg-black/70 text-[10px] transition hover:bg-black hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <form
           onSubmit={submit}
           className={`bg-input flex items-center gap-2 px-3 py-2.5 ring-1 transition ${
@@ -600,28 +623,6 @@ export const Composer = ({
               : "focus-within:ring-blurple/50 ring-white/10"
           }`}
         >
-          {previewUrls.length > 0 && (
-            <div className="flex w-full flex-wrap gap-2 px-0.5 pb-2">
-              {previewUrls.map((url, i) => (
-                <div key={url} className="relative h-14 w-14">
-                  {/* oxlint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={url}
-                    alt={`Attachment ${i + 1}`}
-                    className="h-14 w-14 border border-white/10 object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(i)}
-                    aria-label={`Remove attachment ${i + 1}`}
-                    className="text-ink-ghost absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center border border-white/20 bg-black/70 text-[10px] transition hover:bg-black hover:text-white"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
           <input
             ref={fileInputRef}
             type="file"
