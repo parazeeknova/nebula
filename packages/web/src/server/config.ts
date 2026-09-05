@@ -24,5 +24,7 @@ export const config = {
   spacetimedbDb: process.env.SPACETIMEDB_DB_NAME ?? "nebula",
   spacetimedbHost: process.env.SPACETIMEDB_HOST ?? "ws://127.0.0.1:3000",
   spacetimedbToken: process.env.SPACETIMEDB_TOKEN ?? "",
+  visionModel:
+    process.env.NEBULA_VISION_MODEL ?? "generalcompute::gemma-4-31B-it",
   workerPollMs: Number(process.env.WORKER_POLL_MS ?? 1000),
 };

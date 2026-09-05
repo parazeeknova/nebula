@@ -1276,7 +1276,10 @@ export const useSendMessage = (
       }
       // Reducers require a non-empty prompt; use a placeholder when only
       // images are attached.
-      const prompt = trimmed.length > 0 ? trimmed : "[Attached image]";
+      const prompt =
+        trimmed.length > 0
+          ? trimmed
+          : "Please analyze the attached image(s) and describe what you see.";
 
       // 1. User mentioned an agent: only mentions spin up an agent thread
       if (mentions.length > 0) {

@@ -183,6 +183,10 @@ const requestChat = async (
 
 /** Scoped (per-job) model override wins, then an explicit option, then config. */
 const resolveModelList = (override?: string): string[] => {
+  // When images are attached, the model must accept vision input.
+  if (getImageParts().length > 0) {
+    return resolveModels(config.visionModel, config.visionModel);
+  }
   const scoped = modelContext.getStore();
   const primary = override || scoped || "";
   return primary.length > 0
@@ -383,9 +387,20 @@ export const chatWithTools = async (
       type: "function",
     })
   );
+  const images = getImageParts();
+  const userContent: string | ChatCompletionContentPart[] =
+    images.length > 0
+      ? [
+          { text: user, type: "text" },
+          ...images.map((img) => ({
+            image_url: { url: `data:${img.mime};base64,${img.data}` },
+            type: "image_url" as const,
+          })),
+        ]
+      : user;
   const messages: ChatCompletionMessageParam[] = [
     { content: system, role: "system" },
-    { content: user, role: "user" },
+    { content: userContent, role: "user" },
   ];
   const calls: ToolCallResult["calls"] = [];
   const models = resolveModelList(options?.model);
