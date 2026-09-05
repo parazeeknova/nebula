@@ -112,6 +112,68 @@ export const transcribeBlob = async (blob: Blob): Promise<string> => {
 
 export type VoiceStatus = "idle" | "recording" | "transcribing";
 
+const SILENCE_MS = 2000;
+const LEVEL_POLL_MS = 200;
+// RMS floor, scaled x1000.
+const SILENCE_LEVEL = 8;
+
+interface SilenceHandle {
+  stop: () => void;
+}
+
+const noopStop = (): void => undefined;
+
+/**
+ * Watches a live mic stream and fires onSilence after SILENCE_MS of quiet.
+ * Uses an AnalyserNode's time-domain RMS so the recorder is never consulted.
+ */
+const attachSilenceDetector = (
+  stream: MediaStream,
+  onSilence: () => void
+): SilenceHandle => {
+  const AudioCtor =
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+  if (AudioCtor === undefined) {
+    return { stop: noopStop };
+  }
+  const context = new AudioCtor();
+  const source = context.createMediaStreamSource(stream);
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 2048;
+  source.connect(analyser);
+  const data = new Uint8Array(analyser.fftSize);
+  let silentSince = 0;
+
+  const timer = window.setInterval(() => {
+    analyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (const sample of data) {
+      const v = (sample - 128) / 128;
+      sum += v * v;
+    }
+    const level = Math.sqrt(sum / data.length) * 1000;
+    if (level < SILENCE_LEVEL) {
+      const now = performance.now();
+      if (silentSince === 0) {
+        silentSince = now;
+      } else if (now - silentSince >= SILENCE_MS) {
+        onSilence();
+      }
+    } else {
+      silentSince = 0;
+    }
+  }, LEVEL_POLL_MS);
+
+  return {
+    stop: () => {
+      window.clearInterval(timer);
+      void context.close();
+    },
+  };
+};
+
 /** Records the microphone, transcribes via the server proxy, fires onResult. */
 export const useStt = (
   onResult: (text: string) => void
@@ -124,6 +186,7 @@ export const useStt = (
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const silenceRef = useRef<SilenceHandle>({ stop: noopStop });
   const onResultRef = useRef(onResult);
 
   useEffect(() => {
@@ -140,6 +203,7 @@ export const useStt = (
 
   useEffect(
     () => () => {
+      silenceRef.current.stop();
       const recorder = recorderRef.current;
       if (recorder !== null && recorder.state !== "inactive") {
         recorder.stop();
@@ -178,6 +242,7 @@ export const useStt = (
           }
         });
         recorder.addEventListener("stop", () => {
+          silenceRef.current.stop();
           void (async () => {
             stopTracks(streamRef.current);
             setStatus("transcribing");
@@ -199,6 +264,12 @@ export const useStt = (
         recorderRef.current = recorder;
         recorder.start();
         setStatus("recording");
+        silenceRef.current.stop();
+        silenceRef.current = attachSilenceDetector(stream, () => {
+          if (recorder.state !== "inactive") {
+            recorder.stop();
+          }
+        });
       } catch (error) {
         console.warn(
           "[stt] mic error",
