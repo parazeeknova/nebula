@@ -217,7 +217,7 @@ const MembersMini = () => (
           Research
         </span>
         <span className="block truncate font-mono text-[8px] text-[#8b9bff]">
-          @research
+          @res
         </span>
         <span className="mt-1 flex gap-1">
           <span className="bg-gold/10 text-gold ring-gold/30 px-1 py-px font-mono text-[8px] ring-1">
@@ -435,7 +435,7 @@ export const HeroMock = () => (
           </p>
           <div className="mb-1 flex items-center justify-between gap-2 px-0.5">
             <span className="text-ink-dim inline-flex items-center gap-1 px-1.5 py-0.5 font-mono text-[8.5px] ring-1 ring-white/10">
-              gpt-oss-120b
+              gpt-5.6-luna
             </span>
             <span className="text-ink-ghost font-mono text-[8px]">
               room model
@@ -446,7 +446,7 @@ export const HeroMock = () => (
               <PlusIcon className="h-3 w-3" />
             </span>
             <p className="text-ink-ghost min-w-0 flex-1 truncate text-[10.5px]">
-              Message the room — <Mention>@neb</Mention>, @research…
+              Message the room — <Mention>@neb</Mention>, @res…
             </p>
             <span className="bg-blurple grid h-6 w-6 shrink-0 place-items-center text-white shadow-[0_4px_14px_rgba(88,101,242,0.55)]">
               <SendIcon className="h-2.5 w-2.5" />

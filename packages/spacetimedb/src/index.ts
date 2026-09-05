@@ -109,6 +109,30 @@ const room_presence = table(
   }
 );
 
+// Per-user live status relayed through the server so separate client
+// instances (different browsers/devices) can see each other's typing and
+// voice state — BroadcastChannel only works within one browser.
+const room_user_status = table(
+  {
+    indexes: [
+      {
+        accessor: "by_room",
+        algorithm: "btree",
+        columns: ["room_id", "identity"],
+      },
+    ],
+    name: "room_user_status",
+    public: true,
+  },
+  {
+    identity: t.identity(),
+    room_id: t.u64(),
+    typing: t.bool(),
+    updated_at: t.timestamp(),
+    voice: t.bool(),
+  }
+);
+
 const thread = table(
   { name: "thread", public: true },
   {
@@ -178,6 +202,10 @@ const ai_job = table(
     // Appended for migration: new columns must sit at the end and declare a default.
     // eslint-disable-next-line sort-keys, unicorn/no-useless-undefined
     model: t.option(t.string()).default(undefined),
+    // Set when a worker claims the job; the watchdog uses it to age out runs
+    // that never finish. Falls back to created_at when unset (old rows).
+    // eslint-disable-next-line sort-keys, unicorn/no-useless-undefined
+    claimed_at: t.option(t.timestamp()).default(undefined),
   }
 );
 
@@ -335,6 +363,7 @@ const spacetimedb = schema({
   room_human,
   room_memory_entry,
   room_presence,
+  room_user_status,
   snapshot_timer,
   stream_event,
   thread,
@@ -389,36 +418,68 @@ const requireRoomMember = (ctx: Ctx, room_id: bigint): void => {
 
 const DEFAULT_AGENTS = [
   {
-    model_name: "gpt-oss-120b",
-    model_provider: "generalcompute",
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
     name: "Neb",
     system_prompt:
       "You are Neb, the general orchestrator that routes work to specialist agents.",
     tools: ["orchestrate"],
   },
   {
-    model_name: "gpt-oss-120b",
-    model_provider: "generalcompute",
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
     name: "Researcher",
     system_prompt:
       "You are Researcher, the web search specialist that finds current facts and sources.",
     tools: ["web_search"],
   },
   {
-    model_name: "gpt-oss-120b",
-    model_provider: "generalcompute",
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
     name: "Marketing",
     system_prompt:
       "You are Marketing, the market analysis specialist covering competitors, pricing, positioning and implementation.",
     tools: ["market_analysis"],
   },
   {
-    model_name: "gpt-oss-120b",
-    model_provider: "generalcompute",
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
     name: "Evaluator",
     system_prompt:
       "You are Evaluator, the decision specialist that weighs risks, tradeoffs, assumptions and recommendations.",
     tools: ["evaluate"],
+  },
+  {
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
+    name: "Code",
+    system_prompt:
+      "You are Code, the code specialist that writes, reviews and explains code.",
+    tools: ["code_review"],
+  },
+  {
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
+    name: "Copywriter",
+    system_prompt:
+      "You are Copywriter, the messaging specialist that drafts positioning, taglines and documentation.",
+    tools: ["draft_copy"],
+  },
+  {
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
+    name: "Product",
+    system_prompt:
+      "You are Product, the product specialist that turns ideas into specs, user stories and prioritized requirements.",
+    tools: ["write_spec"],
+  },
+  {
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
+    name: "Support",
+    system_prompt:
+      "You are Support, the support specialist that answers product and support questions and triages issues.",
+    tools: ["draft_response"],
   },
 ] as const;
 
@@ -494,6 +555,11 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   const p = ctx.db.room_presence.identity.find(ctx.sender);
   if (p) {
     ctx.db.room_presence.identity.delete(ctx.sender);
+  }
+  for (const s of ctx.db.room_user_status.iter()) {
+    if (s.identity.toHexString() === ctx.sender.toHexString()) {
+      ctx.db.room_user_status.by_room.delete([s.room_id, s.identity]);
+    }
   }
 });
 
@@ -635,6 +701,39 @@ export const heartbeat = spacetimedb.reducer(
         room_id,
       });
     }
+  }
+);
+
+export const set_user_status = spacetimedb.reducer(
+  { room_id: t.u64(), typing: t.bool(), voice: t.bool() },
+  (ctx, { room_id, typing, voice }) => {
+    getRoom(ctx, room_id);
+    requireRoomMember(ctx, room_id);
+    const me = ctx.sender.toHexString();
+    let exists = false;
+    for (const row of ctx.db.room_user_status.by_room.filter(room_id)) {
+      if (row.identity.toHexString() === me) {
+        exists = true;
+        break;
+      }
+    }
+    if (exists) {
+      ctx.db.room_user_status.by_room.delete([room_id, ctx.sender]);
+    }
+    ctx.db.room_user_status.insert({
+      identity: ctx.sender,
+      room_id,
+      typing,
+      updated_at: ctx.timestamp,
+      voice,
+    });
+  }
+);
+
+export const clear_user_status = spacetimedb.reducer(
+  { room_id: t.u64() },
+  (ctx, { room_id }) => {
+    ctx.db.room_user_status.by_room.delete([room_id, ctx.sender]);
   }
 );
 
@@ -798,6 +897,7 @@ export const start_thread = spacetimedb.reducer(
     if (a.tagged_agent !== undefined) {
       ctx.db.ai_job.insert({
         angle: a.angle.slice(0, 512),
+        claimed_at: undefined,
         created_at: ctx.timestamp,
         created_by: ctx.sender,
         job_id: 0n,
@@ -856,6 +956,7 @@ export const post_message = spacetimedb.reducer(
     if (targetAgent !== undefined) {
       ctx.db.ai_job.insert({
         angle: "",
+        claimed_at: undefined,
         created_at: ctx.timestamp,
         created_by: ctx.sender,
         job_id: 0n,

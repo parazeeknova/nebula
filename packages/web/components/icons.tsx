@@ -112,6 +112,18 @@ export const SendIcon = ({ className = "h-4 w-4" }: P) => (
   </svg>
 );
 
+export const ReplyIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  </svg>
+);
+
 export const BellIcon = ({ className = "h-4 w-4" }: P) => (
   <svg
     viewBox="0 0 24 24"
@@ -262,6 +274,20 @@ export const CheckIcon = ({ className = "h-4 w-4" }: P) => (
     aria-hidden
   >
     <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+
+export const ChartIcon = ({ className = "h-4 w-4" }: P) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${base} ${className}`}
+    {...stroke}
+    aria-hidden
+  >
+    <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+    <path d="M7 13v4" />
+    <path d="M12 9v8" />
+    <path d="M17 5v12" />
   </svg>
 );
 

@@ -48,6 +48,10 @@ describe("getSystemAnswer", () => {
     expect(answer).toContain("Web Research Agent");
     expect(answer).toContain("Market Analysis Agent");
     expect(answer).toContain("Evaluation Agent");
+    expect(answer).toContain("Code Agent");
+    expect(answer).toContain("Copywriting Agent");
+    expect(answer).toContain("Product Agent");
+    expect(answer).toContain("Support Agent");
   });
 
   test("never mentions unrelated entities", () => {

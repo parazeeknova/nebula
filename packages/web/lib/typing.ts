@@ -1,149 +1,96 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useReducer } from "spacetimedb/react";
 
-export interface TypingEvent {
-  displayName: string;
-  identityHex: string;
-  roomId: string;
-  timestamp: number;
-  type: "typing" | "stop";
-}
+import { reducers } from "../src/module_bindings";
+import { useSharedTables } from "./shared-tables";
 
-const CHANNEL_NAME = "nebula:typing";
 const TYPING_TTL_MS = 3000;
 const THROTTLE_MS = 1500;
 
-class TypingBus {
-  private channel: BroadcastChannel | null = null;
-  private listeners = new Set<(event: TypingEvent) => void>();
-
-  constructor() {
-    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
-      try {
-        this.channel = new BroadcastChannel(CHANNEL_NAME);
-        this.channel.addEventListener(
-          "message",
-          (e: MessageEvent<TypingEvent>) => {
-            this.emit(e.data);
-          }
-        );
-      } catch {
-        this.channel = null;
-      }
-    }
-  }
-
-  broadcast(event: TypingEvent): void {
-    if (this.channel) {
-      try {
-        // oxlint-disable-next-line unicorn/require-post-message-target-origin
-        this.channel.postMessage(event);
-      } catch {
-        // BroadcastChannel unavailable
-      }
-    }
-    this.emit(event);
-  }
-
-  subscribe(listener: (event: TypingEvent) => void): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  private emit(event: TypingEvent): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(event);
-      } catch (error) {
-        console.error("Typing listener error", error);
-      }
-    }
-  }
-}
-
-export const typingBus = new TypingBus();
-
-export const useTypingStatus = (
+/**
+ * Live per-user status (typing / voice) relayed through SpacetimeDB so
+ * separate client instances see each other's activity — BroadcastChannel
+ * only works within one browser.
+ */
+export const useRoomUserStatus = (
   roomId: bigint,
   myIdentityHex?: string
 ): {
   typingIdentities: Set<string>;
   typingNames: string[];
+  voiceIdentities: Set<string>;
 } => {
-  const [typers, setTypers] = useState<
-    Map<string, { displayName: string; expiresAt: number }>
-  >(() => new Map());
+  const { roomUserStatus: rows, users } = useSharedTables();
 
-  const roomIdStr = String(roomId);
+  return useMemo(() => {
+    const typingIdentities = new Set<string>();
+    const voiceIdentities = new Set<string>();
+    const typingNames: string[] = [];
 
-  useEffect(() => {
-    // Reset when room changes
-    setTypers(new Map());
-
-    const unsubscribe = typingBus.subscribe((event) => {
-      if (
-        event.roomId !== roomIdStr ||
-        (myIdentityHex && event.identityHex === myIdentityHex)
-      ) {
-        return;
+    for (const row of rows) {
+      if (row.roomId !== roomId) {
+        continue;
       }
+      const hex = row.identity.toHexString();
+      if (hex === myIdentityHex) {
+        continue;
+      }
+      if (row.typing) {
+        typingIdentities.add(hex);
+      }
+      if (row.voice) {
+        voiceIdentities.add(hex);
+      }
+    }
+    // Build typingNames in row order.
+    for (const row of rows) {
+      if (row.roomId !== roomId) {
+        continue;
+      }
+      const hex = row.identity.toHexString();
+      if (hex === myIdentityHex || !typingIdentities.has(hex)) {
+        continue;
+      }
+      const user = users.find((u) => u.identity.toHexString() === hex);
+      const name = user?.displayName ?? `${hex.slice(0, 8)}…`;
+      typingNames.push(name);
+    }
+    return { typingIdentities, typingNames, voiceIdentities };
+  }, [rows, users, roomId, myIdentityHex]);
+};
 
-      setTypers((prev) => {
-        const next = new Map(prev);
-        if (event.type === "stop") {
-          next.delete(event.identityHex);
-        } else {
-          next.set(event.identityHex, {
-            displayName: event.displayName,
-            expiresAt: Date.now() + TYPING_TTL_MS,
-          });
+export const useVoiceNotifier = (
+  roomId: bigint,
+  identityHex: string
+): {
+  setSpeaking: (speaking: boolean) => void;
+} => {
+  const setUserStatus = useReducer(reducers.setUserStatus);
+  return {
+    setSpeaking: useCallback(
+      (speaking: boolean) => {
+        if (!identityHex) {
+          return;
         }
-        return next;
-      });
-    });
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setTypers((prev) => {
-        let changed = false;
-        const next = new Map(prev);
-        for (const [hex, data] of next.entries()) {
-          if (data.expiresAt <= now) {
-            next.delete(hex);
-            changed = true;
-          }
-        }
-        return changed ? next : prev;
-      });
-    }, 500);
-
-    return () => {
-      unsubscribe();
-      clearInterval(interval);
-    };
-  }, [roomIdStr, myIdentityHex]);
-
-  const typingIdentities = new Set(
-    [...typers.keys()].filter((hex) => !myIdentityHex || hex !== myIdentityHex)
-  );
-  const typingNames = [...typers.entries()]
-    .filter(([hex]) => !myIdentityHex || hex !== myIdentityHex)
-    .map(([, t]) => t.displayName);
-
-  return { typingIdentities, typingNames };
+        void setUserStatus({ roomId, typing: false, voice: speaking });
+      },
+      [identityHex, roomId, setUserStatus]
+    ),
+  };
 };
 
 export const useTypingNotifier = (
   roomId: bigint,
   identityHex: string,
-  displayName: string
+  _displayName: string
 ): {
   startTyping: () => void;
   stopTyping: () => void;
 } => {
+  const setUserStatus = useReducer(reducers.setUserStatus);
+  const clearUserStatus = useReducer(reducers.clearUserStatus);
   const lastBroadcast = useRef(0);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -154,48 +101,41 @@ export const useTypingNotifier = (
     }
   }, []);
 
+  const setStatus = useCallback(
+    (typing: boolean, voice: boolean) => {
+      if (!identityHex) {
+        return;
+      }
+      void setUserStatus({ roomId, typing, voice });
+    },
+    [identityHex, roomId, setUserStatus]
+  );
+
   const stopTyping = useCallback(() => {
     clearTimer();
     lastBroadcast.current = 0;
-    if (!identityHex) {
-      return;
-    }
-    typingBus.broadcast({
-      displayName,
-      identityHex,
-      roomId: String(roomId),
-      timestamp: Date.now(),
-      type: "stop",
-    });
-  }, [roomId, identityHex, displayName, clearTimer]);
+    setStatus(false, false);
+  }, [clearTimer, setStatus]);
 
   const startTyping = useCallback(() => {
-    if (!identityHex) {
-      return;
-    }
     const now = Date.now();
     if (now - lastBroadcast.current > THROTTLE_MS) {
       lastBroadcast.current = now;
-      typingBus.broadcast({
-        displayName,
-        identityHex,
-        roomId: String(roomId),
-        timestamp: now,
-        type: "typing",
-      });
+      setStatus(true, false);
     }
-
     clearTimer();
     idleTimer.current = setTimeout(() => {
-      stopTyping();
+      setStatus(false, false);
     }, TYPING_TTL_MS);
-  }, [roomId, identityHex, displayName, stopTyping, clearTimer]);
+  }, [setStatus, clearTimer]);
 
   useEffect(
     () => () => {
       clearTimer();
+      setStatus(false, false);
+      void clearUserStatus({ roomId });
     },
-    [clearTimer]
+    [clearTimer, setStatus, clearUserStatus, roomId]
   );
 
   return { startTyping, stopTyping };

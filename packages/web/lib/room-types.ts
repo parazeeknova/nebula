@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import type { Identity } from "spacetimedb";
 
 export const RoomStatus = { Active: 0, Archived: 1 } as const;
@@ -54,6 +55,10 @@ export interface Agent {
   presence: "active" | "idle" | "working";
   currentTool?: string;
   currentJobStatus?: number;
+  /** Brand color for this agent's avatars/marks. */
+  color: string;
+  /** Brand glyph for this agent's avatars/marks. */
+  icon: ComponentType<{ className?: string }>;
 }
 
 export interface RoomHuman {
@@ -64,6 +69,7 @@ export interface RoomHuman {
   isOnline: boolean;
   lastSeenMins: number;
   isTyping?: boolean;
+  isSpeaking?: boolean;
   roleLabel?: string;
 }
 
@@ -82,6 +88,8 @@ export interface ToolCallInfo {
   status: number;
   input?: string;
   output?: string;
+  callId?: bigint;
+  createdAtMicros?: bigint;
 }
 
 export interface ChatMessage {
@@ -98,9 +106,13 @@ export interface ChatMessage {
   streaming: boolean;
   mentions: bigint[];
   createdAt: string;
+  /** Unix-micros timestamp for accurate chronological sorting. */
+  createdAtMicros?: bigint;
   chunks: MessageChunk[];
   ticks?: StreamTick[];
   toolCall?: ToolCallInfo;
+  /** All tool calls that produced this message (one job can fan out to several). */
+  toolCalls?: ToolCallInfo[];
   jobStatus?: number;
 }
 
@@ -130,6 +142,8 @@ export interface AgentWork {
   agent: Agent;
   jobs: AgentWorkJob[];
   messages: ChatMessage[];
+  /** Tool calls attributed to this agent via its tools[] (sub-agents never author messages). */
+  tools: ToolCallInfo[];
   status: "working" | "done" | "failed" | "idle";
   preview: string;
 }
@@ -140,6 +154,14 @@ export interface MergeBanner {
   status: number;
   angles: { label: string; state: string }[];
 }
+
+/**
+ * One entry in the thread's unified, time-ordered timeline: either a message
+ * (user steer / agent reply) or a tool-call progress step.
+ */
+export type ThreadTimelineItem =
+  | { kind: "message"; msg: ChatMessage }
+  | { kind: "tool"; tool: ToolCallInfo; agent: Agent | undefined };
 
 export const fullText = (m: ChatMessage): string => {
   if (m.chunks.length === 0) {

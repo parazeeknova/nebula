@@ -1,4 +1,14 @@
 export const AGENTS = {
+  code: {
+    description:
+      "Writes, reviews and explains code, and gives technical guidance with concrete snippets.",
+    name: "Code Agent",
+  },
+  copy: {
+    description:
+      "Drafts messaging, positioning, taglines, landing-page copy and documentation.",
+    name: "Copywriting Agent",
+  },
   evaluation: {
     description:
       "Evaluates decisions, tradeoffs, risks, assumptions and recommendations.",
@@ -8,6 +18,16 @@ export const AGENTS = {
     description:
       "Analyzes products, competitors, pricing, revenue signals, market positioning and implementation.",
     name: "Market Analysis Agent",
+  },
+  pm: {
+    description:
+      "Turns ideas into specs, user stories, roadmaps and prioritized requirements.",
+    name: "Product Agent",
+  },
+  support: {
+    description:
+      "Answers product and support questions, drafts responses, and triages or escalates issues.",
+    name: "Support Agent",
   },
   web: {
     description:
@@ -20,17 +40,29 @@ export type AgentName = keyof typeof AGENTS;
 export type AgentRoute = AgentName | "orchestrator";
 
 // Canonic`al execution order. Kept separate from AGENTS key order on purpose.
-export const AGENT_NAMES: AgentName[] = ["web", "market", "evaluation"];
+export const AGENT_NAMES: AgentName[] = [
+  "web",
+  "market",
+  "code",
+  "copy",
+  "pm",
+  "support",
+  "evaluation",
+];
 
 export const isAgentName = (value: unknown): value is AgentName =>
   typeof value === "string" && Object.hasOwn(AGENTS, value);
 
 /** Frontend @mention handle -> what the worker should run. */
 export const HANDLE_TO_AGENT = {
-  evaluator: "evaluation",
-  marketing: "market",
+  code: "code",
+  copy: "copy",
+  eval: "evaluation",
+  mkt: "market",
   neb: "orchestrator",
-  researcher: "web",
+  pm: "pm",
+  res: "web",
+  sup: "support",
 } as const satisfies Record<string, AgentRoute>;
 
 export type AgentHandle = keyof typeof HANDLE_TO_AGENT;

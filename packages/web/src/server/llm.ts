@@ -37,10 +37,6 @@ const providerByName = (name: ProviderName): ProviderConfig => {
   return provider;
 };
 
-/**
- * A model reference is `provider::model` (e.g. `openai::gpt-5-nano`).
- * Bare ids default to the GeneralCompute provider for backward compatibility.
- */
 export const parseModelRef = (
   ref: string
 ): { model: string; provider: ProviderName } => {
@@ -153,16 +149,21 @@ const requestChat = async (
   return content;
 };
 
+/** Scoped (per-job) model override wins, then an explicit option, then config. */
+const resolveModelList = (override?: string): string[] => {
+  const scoped = modelContext.getStore();
+  const primary = override || scoped || "";
+  return primary.length > 0
+    ? resolveModels(primary, config.fallbackModel)
+    : resolveModels(config.model, config.fallbackModel);
+};
+
 export const chatJson = async <T>(
   system: string,
   user: string,
   options?: { model?: string }
 ): Promise<T> => {
-  const scoped = modelContext.getStore();
-  const models =
-    options?.model || scoped
-      ? resolveModels(options?.model || scoped || "", config.fallbackModel)
-      : resolveModels(config.model, config.fallbackModel);
+  const models = resolveModelList(options?.model);
   const failures: string[] = [];
   for (const useJsonMode of [true, false]) {
     for (const model of models) {
@@ -194,4 +195,80 @@ export const chatJson = async <T>(
     }
   }
   throw new Error(`All LLM models failed — ${failures.join(" | ")}`);
+};
+
+export interface StreamTextOptions {
+  model?: string;
+  onToken?: (token: string) => Promise<void>;
+}
+
+const requestChatStream = async (
+  modelRef: string,
+  system: string,
+  user: string,
+  onToken: (token: string) => Promise<void>
+): Promise<string> => {
+  const { model, provider } = parseModelRef(modelRef);
+  const llm = getClient(provider);
+  const stream = await llm.chat.completions.create({
+    messages: [
+      { content: system, role: "system" },
+      { content: user, role: "user" },
+    ],
+    model,
+    stream: true,
+  });
+  let text = "";
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content ?? "";
+    if (delta.length > 0) {
+      text += delta;
+      // eslint-disable-next-line no-await-in-loop -- tokens must flush in order
+      await onToken(delta);
+    }
+  }
+  if (text.trim().length === 0) {
+    throw new Error("LLM streamed an empty response");
+  }
+  return text;
+};
+
+export const streamChatText = async (
+  system: string,
+  user: string,
+  options?: StreamTextOptions
+): Promise<string> => {
+  const models = resolveModelList(options?.model);
+  const onToken = options?.onToken ?? (() => Promise.resolve());
+  const failures: string[] = [];
+  for (const model of models) {
+    const startedAt = Date.now();
+    let emitted = 0;
+    try {
+      console.info(`[llm] stream model=${model}`);
+      const text =
+        // eslint-disable-next-line no-await-in-loop -- models stream sequentially: fallback only runs after primary fails
+        await requestChatStream(model, system, user, async (t) => {
+          emitted += t.length;
+          await onToken(t);
+        });
+      console.info(
+        `[llm] stream ok model=${model} in ${Date.now() - startedAt}ms`
+      );
+      if (model !== models[0]) {
+        console.warn(`[llm] primary model failed, served by fallback ${model}`);
+      }
+      return text;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${model}: ${message}`);
+      console.warn(
+        `[llm] stream model=${model} FAILED after ${Date.now() - startedAt}ms: ${message.slice(0, 160)}`
+      );
+      if (emitted > 0) {
+        throw error;
+      }
+    }
+  }
+  throw new Error(`All LLM models failed to stream — ${failures.join(" | ")}`);
 };

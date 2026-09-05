@@ -138,17 +138,21 @@ const MemoryIndicator = ({ msg }: { msg: ChatMessage }) => {
 };
 
 const ThreadFooterButton = ({ info }: { info: ThreadFooterInfo }) => (
-  <div className="mt-2.5">
+  <div className="mt-2.5 flex items-center gap-2.5">
+    <span
+      aria-hidden
+      className="w-px self-stretch bg-white/[0.12]"
+      style={{ marginLeft: 14 }}
+    />
     <button
       onClick={(e) => {
         e.stopPropagation();
         info.onOpen();
       }}
-      className="text-ink-dim inline-flex items-center gap-2 bg-white/[0.04] px-2.5 py-1.5 text-[12px] font-medium ring-1 ring-white/[0.08] transition hover:bg-white/[0.08] hover:text-white"
+      className="inline-flex cursor-pointer items-center text-[12px] font-medium text-white/55 transition hover:text-white hover:underline hover:underline-offset-4"
       aria-label={`View thread with ${info.replyCount} replies`}
     >
-      <span className="text-blurple text-[13px]">💬</span>
-      <span className="font-semibold text-white">
+      <span>
         {info.replyCount > 0
           ? `${info.replyCount} ${info.replyCount === 1 ? "reply" : "replies"}`
           : "View thread"}
@@ -225,16 +229,18 @@ export const MessageItem = ({
               BOT
             </span>
           )}
-          {msg.toolCall && (
-            <span
-              className={`px-2 py-px font-mono text-[10px] font-semibold ring-1 ${TOOL_STYLE[msg.toolCall.status] ?? TOOL_STYLE[0]}`}
-            >
-              {msg.toolCall.status === 1 && (
-                <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse bg-current" />
-              )}
-              {msg.toolCall.tool} ·{" "}
-              {TOOL_LABEL[msg.toolCall.status] ?? "pending"}
-            </span>
+          {(msg.toolCalls ?? (msg.toolCall ? [msg.toolCall] : [])).map(
+            (call) => (
+              <span
+                key={`${call.tool}-${call.status}`}
+                className={`px-2 py-px font-mono text-[10px] font-semibold ring-1 ${TOOL_STYLE[call.status] ?? TOOL_STYLE[0]}`}
+              >
+                {call.status === 1 && (
+                  <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse bg-current" />
+                )}
+                {call.tool} · {TOOL_LABEL[call.status] ?? "pending"}
+              </span>
+            )
           )}
           <span className="text-ink-ghost font-mono text-[11px]">
             {msg.createdAt}

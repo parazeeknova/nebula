@@ -1,5 +1,7 @@
 "use client";
 
+import type { ComponentType } from "react";
+
 import { BotIcon } from "../icons";
 
 const Avatar = ({
@@ -8,12 +10,14 @@ const Avatar = ({
   size = 40,
   bot = false,
   online,
+  icon,
 }: {
   name: string;
   color: string;
   size?: number;
   bot?: boolean;
   online?: boolean;
+  icon?: ComponentType<{ className?: string }>;
 }) => {
   const initials = name
     .split(" ")
@@ -21,6 +25,8 @@ const Avatar = ({
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+  const Glyph = icon ?? (bot ? BotIcon : null);
 
   return (
     <span
@@ -35,7 +41,7 @@ const Avatar = ({
         }}
         aria-hidden
       >
-        {bot ? <BotIcon className="h-1/2 w-1/2" /> : initials}
+        {Glyph ? <Glyph className="h-1/2 w-1/2" /> : initials}
       </span>
       {online !== undefined && (
         <span

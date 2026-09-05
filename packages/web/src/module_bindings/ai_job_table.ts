@@ -21,4 +21,5 @@ export default __t.row({
   taggedAgent: __t.option(__t.u64()).name("tagged_agent"),
   threadId: __t.u64().name("thread_id"),
   model: __t.option(__t.string()),
+  claimedAt: __t.option(__t.timestamp()).name("claimed_at"),
 });

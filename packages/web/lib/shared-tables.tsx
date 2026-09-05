@@ -13,6 +13,7 @@ import type {
   Room as RoomRow,
   RoomMemoryEntry,
   RoomPresence,
+  RoomUserStatus,
   ToolCall,
 } from "../src/module_bindings/types";
 
@@ -32,6 +33,7 @@ export interface SharedRows {
   memories: readonly RoomMemoryEntry[];
   presences: readonly RoomPresence[];
   rooms: readonly RoomRow[];
+  roomUserStatus: readonly RoomUserStatus[];
   toolCalls: readonly ToolCall[];
   users: readonly AppUser[];
 }
@@ -45,6 +47,7 @@ export const SharedTablesProvider = ({ children }: { children: ReactNode }) => {
   const [memories] = useTable(tables.room_memory_entry);
   const [presences] = useTable(tables.room_presence);
   const [rooms] = useTable(tables.room);
+  const [roomUserStatus] = useTable(tables.room_user_status);
   const [toolCalls] = useTable(tables.tool_call);
   const [users] = useTable(tables.app_user);
 
@@ -55,11 +58,22 @@ export const SharedTablesProvider = ({ children }: { children: ReactNode }) => {
       explorations,
       memories,
       presences,
+      roomUserStatus,
       rooms,
       toolCalls,
       users,
     }),
-    [agents, chunks, explorations, memories, presences, rooms, toolCalls, users]
+    [
+      agents,
+      chunks,
+      explorations,
+      memories,
+      presences,
+      roomUserStatus,
+      rooms,
+      toolCalls,
+      users,
+    ]
   );
 
   return (

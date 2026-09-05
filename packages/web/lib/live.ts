@@ -10,6 +10,14 @@ import type {
   Thread as ThreadRow,
   Workspace as WorkspaceRow,
 } from "../src/module_bindings/types";
+import { handleForName } from "./agent-handles";
+import {
+  attributeToolsToAgents,
+  pickFinalAnswer,
+  resolveWorkStatus,
+  workPreview,
+} from "./agent-process";
+import { themeForHandle } from "./agent-theme";
 import {
   JobStatus,
   MergeStatus,
@@ -26,13 +34,18 @@ import type {
   RoomHuman,
   StreamTick,
   Thread,
+  ThreadTimelineItem,
   ThreadView,
   ToolCallInfo,
 } from "./room-types";
 import { useSharedTables } from "./shared-tables";
-import { useTypingStatus } from "./typing";
+import { useRoomUserStatus } from "./typing";
 
-export { useTypingNotifier, useTypingStatus } from "./typing";
+export {
+  useRoomUserStatus,
+  useTypingNotifier,
+  useVoiceNotifier,
+} from "./typing";
 
 const HEARTBEAT_MS = 20_000;
 const ONLINE_WINDOW_MS = 5 * 60_000;
@@ -82,8 +95,11 @@ const timeLabel = (ts: { microsSinceUnixEpoch: bigint }): string => {
 const isFresh = (ts: { microsSinceUnixEpoch: bigint }): boolean =>
   Date.now() - microsOf(ts) < ONLINE_WINDOW_MS;
 
-const handleOf = (name: string): string =>
-  name.split(" ")[0]?.toLowerCase() ?? name.toLowerCase();
+const handleOf = (name: string): string => handleForName(name);
+
+/** Brand color for an agent row, keyed by its handle. */
+const agentColorFor = (name: string): string =>
+  themeForHandle(handleOf(name)).color;
 
 const ROOM_NAMES_KEY = "nebula:room-names";
 
@@ -457,20 +473,26 @@ const toAgent = (
   a: AgentRow,
   running: boolean,
   runningTool: string | undefined
-): Agent => ({
-  agentId: a.agentId,
-  blurb: a.systemPrompt.slice(0, 72),
-  currentJobStatus: running ? JobStatus.Running : undefined,
-  currentTool: runningTool,
-  handle: handleOf(a.name),
-  modelName: a.modelName,
-  modelProvider: a.modelProvider,
-  name: a.name,
-  presence: running ? "working" : "idle",
-  systemPrompt: a.systemPrompt,
-  tools: [...a.tools],
-  workspaceId: a.workspaceId,
-});
+): Agent => {
+  const handle = handleOf(a.name);
+  const theme = themeForHandle(handle);
+  return {
+    agentId: a.agentId,
+    blurb: a.systemPrompt.slice(0, 72),
+    color: theme.color,
+    currentJobStatus: running ? JobStatus.Running : undefined,
+    currentTool: runningTool,
+    handle,
+    icon: theme.icon,
+    modelName: a.modelName,
+    modelProvider: a.modelProvider,
+    name: a.name,
+    presence: running ? "working" : "idle",
+    systemPrompt: a.systemPrompt,
+    tools: [...a.tools],
+    workspaceId: a.workspaceId,
+  };
+};
 
 const buildHumans = (
   roomHumanRows: readonly { identity: Identity }[],
@@ -482,7 +504,8 @@ const buildHumans = (
   roomId: bigint,
   myHex: string,
   presence: Map<string, string>,
-  typingIdentities?: Set<string>
+  typingIdentities?: Set<string>,
+  voiceIdentities?: Set<string>
 ): RoomHuman[] =>
   roomHumanRows.map((h) => {
     const hex = hexOf(h.identity);
@@ -502,6 +525,7 @@ const buildHumans = (
       hex,
       identity: h.identity,
       isOnline: inRoom && presRow !== undefined && isFresh(presRow.lastSeen),
+      isSpeaking: hex !== myHex && Boolean(voiceIdentities?.has(hex)),
       isTyping: hex !== myHex && Boolean(typingIdentities?.has(hex)),
       lastSeenMins,
       roleLabel: hex === myHex ? "you" : "member",
@@ -547,6 +571,105 @@ const buildThreadSummaries = (
   return summaries;
 };
 
+export interface ToolEntry {
+  callId: bigint;
+  input?: string;
+  output?: string;
+  status: number;
+  tool: string;
+  createdAtMicros: bigint;
+}
+
+const toToolInfo = (t: ToolEntry): ToolCallInfo => ({
+  callId: t.callId,
+  createdAtMicros: t.createdAtMicros,
+  input: t.input,
+  output: t.output,
+  status: t.status,
+  tool: t.tool,
+});
+
+const toToolEntries = (
+  toolRows: readonly {
+    callId: bigint;
+    createdAt: { microsSinceUnixEpoch: bigint };
+    input: string;
+    jobId: bigint;
+    output?: string | null;
+    status: number;
+    tool: string;
+  }[]
+): Map<string, ToolEntry[]> => {
+  const byJob = new Map<string, ToolEntry[]>();
+  for (const t of toolRows) {
+    const key = String(t.jobId);
+    const list = byJob.get(key) ?? [];
+    list.push({
+      callId: t.callId,
+      createdAtMicros: t.createdAt.microsSinceUnixEpoch,
+      input: t.input,
+      output: t.output ?? undefined,
+      status: t.status,
+      tool: t.tool,
+    });
+    byJob.set(key, list);
+  }
+  for (const list of byJob.values()) {
+    list.sort((a, b) => (a.callId < b.callId ? -1 : 1));
+  }
+  return byJob;
+};
+
+const groupToolsByThread = <J extends { jobId: bigint; threadId: bigint }>(
+  toolsByJob: ReadonlyMap<string, ToolEntry[]>,
+  jobs: readonly J[]
+): Map<string, ToolEntry[]> => {
+  const byId = new Map<string, J>();
+  for (const j of jobs) {
+    byId.set(String(j.jobId), j);
+  }
+  const byThread = new Map<string, ToolEntry[]>();
+  for (const [jobKey, entries] of toolsByJob) {
+    const job = byId.get(jobKey);
+    if (!job) {
+      continue;
+    }
+    const key = String(job.threadId);
+    const list = byThread.get(key) ?? [];
+    list.push(...entries);
+    byThread.set(key, list);
+  }
+  for (const list of byThread.values()) {
+    list.sort((a, b) => (a.callId < b.callId ? -1 : 1));
+  }
+  return byThread;
+};
+
+/**
+ * Pick the badge tool: a running call first, then failed, else the newest
+ * completed one. A job can fan out to several tools (web + market +
+ * evaluation) so the UI needs one primary plus the full list.
+ */
+const pickPrimaryTool = (tools: ToolEntry[]): ToolEntry | undefined => {
+  if (tools.length === 0) {
+    return undefined;
+  }
+  const [running] = tools
+    .filter((t) => t.status === 1)
+    .toSorted((a, b) => (a.callId < b.callId ? -1 : 1));
+  if (running) {
+    return running;
+  }
+  const [failed] = tools
+    .filter((t) => t.status === 3)
+    .toSorted((a, b) => (a.callId < b.callId ? 1 : -1));
+  if (failed) {
+    return failed;
+  }
+  const [newest] = tools.toSorted((a, b) => (a.callId < b.callId ? 1 : -1));
+  return newest;
+};
+
 const buildChatMessages = (
   messageRows: readonly {
     author: Identity;
@@ -563,7 +686,7 @@ const buildChatMessages = (
   agentsById: Map<bigint, AgentRow>,
   users: Map<string, AppUser>,
   latestJobByThread: Map<string, { jobId: bigint; status: number }>,
-  toolsByJob: Map<string, { status: number; tool: string }[]>,
+  toolsByThread: Map<string, ToolEntry[]>,
   chunksByMessage: Map<string, { delta: string; idx: number }[]>,
   ticks: ReadonlyMap<string, StreamTick[]>
 ): ChatMessage[] =>
@@ -575,27 +698,24 @@ const buildChatMessages = (
         m.authorAgent === undefined ? undefined : agentsById.get(m.authorAgent);
       const user = users.get(hex);
       const job = latestJobByThread.get(String(m.threadId));
-      const tool =
-        job === undefined
-          ? undefined
-          : (toolsByJob.get(String(job.jobId)) ?? []).toSorted((a, b) =>
-              a.tool < b.tool ? -1 : 1
-            )[0];
+      // Tools belong to agent replies, never to user prompts. A thread can
+      // hold several jobs (steering), so attach every tool logged for the
+      // thread to keep input/output visible instead of dropping them.
+      const threadTools =
+        m.authorAgent === undefined
+          ? []
+          : (toolsByThread.get(String(m.threadId)) ?? []).toSorted((a, b) =>
+              a.callId < b.callId ? -1 : 1
+            );
+      const primary = pickPrimaryTool(threadTools);
       const toolCall: ToolCallInfo | undefined =
-        tool === undefined
-          ? undefined
-          : {
-              input: undefined,
-              output: undefined,
-              status: tool.status,
-              tool: tool.tool,
-            };
+        primary === undefined ? undefined : toToolInfo(primary);
+      const toolCalls: ToolCallInfo[] | undefined =
+        threadTools.length === 0 ? undefined : threadTools.map(toToolInfo);
       return {
         author: m.author,
         authorAgent: m.authorAgent ?? null,
-        authorColor: agent
-          ? colorFor(`agent:${String(agent.agentId)}`)
-          : colorFor(hex),
+        authorColor: agent ? agentColorFor(agent.name) : colorFor(hex),
         authorHex: hex,
         authorName: agent
           ? agent.name
@@ -605,6 +725,7 @@ const buildChatMessages = (
           .toSorted((a, b) => a.idx - b.idx)
           .map((c) => ({ delta: c.delta, idx: c.idx })),
         createdAt: timeLabel(m.createdAt),
+        createdAtMicros: m.createdAt.microsSinceUnixEpoch,
         jobStatus: job?.status,
         mentions: [...m.mentions],
         messageId: m.messageId,
@@ -614,6 +735,7 @@ const buildChatMessages = (
         threadId: m.threadId,
         ticks: ticks.get(String(m.messageId)),
         toolCall,
+        toolCalls,
       };
     });
 
@@ -625,7 +747,7 @@ const buildRoomAgents = (
     status: number;
     taggedAgent: bigint | null | undefined;
   }[],
-  toolsByJob: ReadonlyMap<string, { status: number; tool: string }[]>
+  toolsByJob: ReadonlyMap<string, ToolEntry[]>
 ): Agent[] => {
   const roomAgentIds = new Set(roomAgentRows.map((r) => r.agentId));
   // Tools currently executing anywhere in this room. When the Neb orchestrator
@@ -704,7 +826,10 @@ export const useRoomData = (
     };
   }, []);
 
-  const { typingIdentities } = useTypingStatus(roomId, myHex);
+  const { typingIdentities, voiceIdentities } = useRoomUserStatus(
+    roomId,
+    myHex
+  );
 
   return useMemo(() => {
     const room = roomRows[0] ? toRoom(roomRows[0]) : undefined;
@@ -736,13 +861,9 @@ export const useRoomData = (
         latestJobByThread.set(key, j);
       }
     }
-    const toolsByJob = new Map<string, { status: number; tool: string }[]>();
-    for (const t of toolRows) {
-      const key = String(t.jobId);
-      const list = toolsByJob.get(key) ?? [];
-      list.push({ status: t.status, tool: t.tool });
-      toolsByJob.set(key, list);
-    }
+    const toolsByJob = toToolEntries(toolRows);
+    // Thread -> every tool logged for it (across steering turns), oldest first.
+    const toolsByThread = groupToolsByThread(toolsByJob, jobs);
 
     const agents = buildRoomAgents(roomAgentRows, agentsById, jobs, toolsByJob);
 
@@ -753,7 +874,8 @@ export const useRoomData = (
       roomId,
       myHex,
       presence,
-      typingIdentities
+      typingIdentities,
+      voiceIdentities
     );
 
     const chunksByMessage = new Map<string, { delta: string; idx: number }[]>();
@@ -775,7 +897,7 @@ export const useRoomData = (
       agentsById,
       users,
       latestJobByThread,
-      toolsByJob,
+      toolsByThread,
       chunksByMessage,
       ticks
     );
@@ -853,6 +975,7 @@ export const useRoomData = (
     ticks,
     renameVer,
     typingIdentities,
+    voiceIdentities,
   ]);
 };
 
@@ -861,6 +984,10 @@ export interface ThreadDetails {
   originMessage: ChatMessage | undefined;
   steeringNotices: ChatMessage[];
   agentWork: AgentWork[];
+  /** Latest agent reply — rendered outside the process dropdowns. */
+  finalAnswer: ChatMessage | undefined;
+  /** The thread as one unified, time-ordered timeline (steers + replies + tool calls). */
+  timeline: ThreadTimelineItem[];
   allMessages: ChatMessage[];
   ready: boolean;
 }
@@ -897,10 +1024,12 @@ export const useThreadDetails = (
       return {
         agentWork: [],
         allMessages: [],
+        finalAnswer: undefined,
         originMessage: undefined,
         ready: false,
         steeringNotices: [],
         thread: undefined,
+        timeline: [],
       };
     }
 
@@ -920,13 +1049,12 @@ export const useThreadDetails = (
       chunksByMessage.set(key, list);
     }
 
-    const toolsByJob = new Map<string, { status: number; tool: string }[]>();
-    for (const t of toolRows) {
-      const key = String(t.jobId);
-      const list = toolsByJob.get(key) ?? [];
-      list.push({ status: t.status, tool: t.tool });
-      toolsByJob.set(key, list);
-    }
+    const toolsByJob = toToolEntries(toolRows);
+    // All tools for this thread (every job in it), oldest first. tool_call
+    // rows only carry job_id, so thread scope is the finest join we have.
+    const threadTools: ToolEntry[] = [...toolsByJob.values()]
+      .flat()
+      .toSorted((a, b) => (a.callId < b.callId ? -1 : 1));
 
     const allMessages: ChatMessage[] = messageRows
       .filter((m) => m.threadId === threadId)
@@ -938,12 +1066,12 @@ export const useThreadDetails = (
             ? undefined
             : agents.find((a) => a.agentId === m.authorAgent);
         const user = users.get(hex);
+        const mine = m.authorAgent === undefined ? [] : threadTools;
+        const primary = pickPrimaryTool(mine);
         return {
           author: m.author,
           authorAgent: m.authorAgent ?? null,
-          authorColor: agent
-            ? colorFor(`agent:${String(agent.agentId)}`)
-            : colorFor(hex),
+          authorColor: agent ? agent.color : colorFor(hex),
           authorHex: hex,
           authorName: agent
             ? agent.name
@@ -953,6 +1081,7 @@ export const useThreadDetails = (
             .toSorted((a, b) => a.idx - b.idx)
             .map((c) => ({ delta: c.delta, idx: c.idx })),
           createdAt: timeLabel(m.createdAt),
+          createdAtMicros: m.createdAt.microsSinceUnixEpoch,
           jobStatus: undefined,
           mentions: [...m.mentions],
           messageId: m.messageId,
@@ -961,7 +1090,8 @@ export const useThreadDetails = (
           streaming: m.streaming,
           threadId: m.threadId,
           ticks: ticks.get(String(m.messageId)),
-          toolCall: undefined,
+          toolCall: primary === undefined ? undefined : toToolInfo(primary),
+          toolCalls: mine.length === 0 ? undefined : mine.map(toToolInfo),
         };
       });
 
@@ -972,44 +1102,46 @@ export const useThreadDetails = (
 
     const jobs = jobRows.filter((j) => j.threadId === threadId);
 
-    // Build one work tab per agent that actually ran in this thread. Idle
-    // agents (never tagged, no job, no reply) are omitted entirely.
+    // Sub-agents surface only as tool_call rows, so attribute the thread's
+    // tools to agents via their tools[] — otherwise orchestrated specialists
+    // never appear in the thread at all.
+    const threadToolInfos = threadTools.map(toToolInfo);
+    const toolsByAgent = attributeToolsToAgents(agents, threadToolInfos);
+    // The final reply lives outside the process dropdowns; tabs show process
+    // plus earlier messages only.
+    const finalAnswer = pickFinalAnswer(allMessages);
+
+    // Build one work tab per agent that actually ran in this thread: tagged,
+    // replied, or left tool calls behind. Idle agents are omitted entirely.
     const agentWork: AgentWork[] = agents
       .map((agent) => {
+        const key = String(agent.agentId);
+        const agentTools = toolsByAgent.get(key) ?? [];
         const agentMsgs = allMessages.filter(
-          (m) => m.authorAgent === agent.agentId
+          (m) =>
+            m.authorAgent === agent.agentId &&
+            (finalAnswer === undefined || m.messageId !== finalAnswer.messageId)
         );
         const agentJobs = jobs.filter(
           (j) => j.taggedAgent === agent.agentId || j.taggedAgent === undefined
         );
 
-        let status: "working" | "done" | "failed" | "idle" = "idle";
-        if (
-          agentMsgs.some((m) => m.streaming) ||
-          agentJobs.some(
-            (j) =>
-              j.status === JobStatus.Running || j.status === JobStatus.Queued
-          )
-        ) {
-          status = "working";
-        } else if (agentJobs.some((j) => j.status === JobStatus.Failed)) {
-          status = "failed";
-        } else if (
-          agentMsgs.length > 0 ||
-          agentJobs.some((j) => j.status === JobStatus.Done)
-        ) {
-          status = "done";
-        }
+        const status = resolveWorkStatus({
+          hasMessages: agentMsgs.length > 0,
+          hasStreamingMessage: agentMsgs.some((m) => m.streaming),
+          jobStatuses: agentJobs.map((j) => j.status),
+          toolStatuses: agentTools.map((t) => t.status),
+        });
 
         const lastMsg = agentMsgs.at(-1);
-        let preview = "";
-        if (lastMsg) {
-          preview = (
-            lastMsg.body || lastMsg.chunks.map((c) => c.delta).join("")
-          ).slice(0, 140);
-        } else if (status === "working") {
-          preview = "Working on response…";
-        }
+        const preview = workPreview({
+          lastMessageText:
+            lastMsg === undefined
+              ? undefined
+              : lastMsg.body || lastMsg.chunks.map((c) => c.delta).join(""),
+          status,
+          tools: agentTools,
+        });
 
         return {
           agent,
@@ -1023,17 +1155,51 @@ export const useThreadDetails = (
           messages: agentMsgs,
           preview,
           status,
+          tools: agentTools,
         };
       })
       .filter((work) => work.status !== "idle");
 
+    // Build one unified, time-ordered timeline: messages (steers + replies)
+    // and tool-call progress steps sorted together by their real timestamps,
+    // so progress shows inline in the order it actually happened.
+    const toolToAgent = new Map<string, Agent>();
+    for (const a of agents) {
+      for (const tool of a.tools) {
+        toolToAgent.set(tool, a);
+      }
+    }
+    const items: ThreadTimelineItem[] = [
+      ...allMessages.map((m): ThreadTimelineItem => ({
+        kind: "message",
+        msg: m,
+      })),
+      ...threadTools.map((t): ThreadTimelineItem => ({
+        agent: toolToAgent.get(t.tool),
+        kind: "tool",
+        tool: toToolInfo(t),
+      })),
+    ];
+    items.sort((a, b) => {
+      const am =
+        a.kind === "message" ? a.msg.createdAtMicros : a.tool.createdAtMicros;
+      const bm =
+        b.kind === "message" ? b.msg.createdAtMicros : b.tool.createdAtMicros;
+      if (am === undefined || bm === undefined || am === bm) {
+        return 0;
+      }
+      return am < bm ? -1 : 1;
+    });
+
     return {
       agentWork,
       allMessages,
+      finalAnswer,
       originMessage,
       ready: threadsReady && msgsReady,
       steeringNotices,
       thread,
+      timeline: items,
     };
   }, [
     threadId,

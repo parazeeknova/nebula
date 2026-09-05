@@ -9,36 +9,68 @@ const log = (...args: unknown[]): void => {
 
 const DEFAULT_AGENTS = [
   {
-    model_name: "gpt-oss-120b",
-    model_provider: "generalcompute",
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
     name: "Neb",
     system_prompt:
       "You are Neb, the general orchestrator that routes work to specialist agents.",
     tools: ["orchestrate"],
   },
   {
-    model_name: "gpt-oss-120b",
-    model_provider: "generalcompute",
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
     name: "Researcher",
     system_prompt:
       "You are Researcher, the web search specialist that finds current facts and sources.",
     tools: ["web_search"],
   },
   {
-    model_name: "gpt-oss-120b",
-    model_provider: "generalcompute",
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
     name: "Marketing",
     system_prompt:
       "You are Marketing, the market analysis specialist covering competitors, pricing, positioning and implementation.",
     tools: ["market_analysis"],
   },
   {
-    model_name: "gpt-oss-120b",
-    model_provider: "generalcompute",
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
     name: "Evaluator",
     system_prompt:
       "You are Evaluator, the decision specialist that weighs risks, tradeoffs, assumptions and recommendations.",
     tools: ["evaluate"],
+  },
+  {
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
+    name: "Code",
+    system_prompt:
+      "You are Code, the code specialist that writes, reviews and explains code.",
+    tools: ["code_review"],
+  },
+  {
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
+    name: "Copywriter",
+    system_prompt:
+      "You are Copywriter, the messaging specialist that drafts positioning, taglines and documentation.",
+    tools: ["draft_copy"],
+  },
+  {
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
+    name: "Product",
+    system_prompt:
+      "You are Product, the product specialist that turns ideas into specs, user stories and prioritized requirements.",
+    tools: ["write_spec"],
+  },
+  {
+    model_name: "gpt-5.6-luna",
+    model_provider: "openai",
+    name: "Support",
+    system_prompt:
+      "You are Support, the support specialist that answers product and support questions and triages issues.",
+    tools: ["draft_response"],
   },
 ] as const;
 
@@ -120,6 +152,9 @@ const main = async (): Promise<void> => {
     if (room.status !== 0) {
       continue;
     }
+    // add_agent_to_room requires the caller to be a room member, so join first.
+    // eslint-disable-next-line no-await-in-loop -- sequential reducer calls
+    await conn.reducers.joinRoom({ roomId: room.roomId });
     for (const ag of conn.db.agent.iter()) {
       const inRoom = [...conn.db.roomAgent.iter()].some(
         (ra) => ra.roomId === room.roomId && ra.agentId === ag.agentId

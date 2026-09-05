@@ -64,6 +64,7 @@ export const AiJob = __t.object("AiJob", {
   taggedAgent: __t.option(__t.u64()),
   threadId: __t.u64(),
   model: __t.option(__t.string()),
+  claimedAt: __t.option(__t.timestamp()),
 });
 export type AiJob = __Infer<typeof AiJob>;
 
@@ -168,6 +169,15 @@ export const RoomPresence = __t.object("RoomPresence", {
   roomId: __t.u64(),
 });
 export type RoomPresence = __Infer<typeof RoomPresence>;
+
+export const RoomUserStatus = __t.object("RoomUserStatus", {
+  identity: __t.identity(),
+  roomId: __t.u64(),
+  typing: __t.bool(),
+  updatedAt: __t.timestamp(),
+  voice: __t.bool(),
+});
+export type RoomUserStatus = __Infer<typeof RoomUserStatus>;
 
 export const SnapshotTimer = __t.object("SnapshotTimer", {
   scheduledAt: __t.scheduleAt(),

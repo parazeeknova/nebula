@@ -23,7 +23,7 @@ export const getSystemAnswer = (prompt: string): string => {
     return `I currently have ${AGENT_NAMES.length} specialized agents: ${list}`;
   }
   return (
-    "I route requests across three specialized agents (web research, market analysis, evaluation), " +
+    "I route requests across specialist agents (web research, market analysis, code, copywriting, product, support, evaluation), " +
     `using ${config.model} with ${config.fallbackModel} as fallback, Firecrawl web search and SpacetimeDB job state. ` +
     'Ask "what agents do you have" for the full list.'
   );

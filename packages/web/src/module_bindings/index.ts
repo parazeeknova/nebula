@@ -39,6 +39,7 @@ import AddAgentToRoomReducer from "./add_agent_to_room_reducer";
 import AppendChunkReducer from "./append_chunk_reducer";
 import ArchiveRoomReducer from "./archive_room_reducer";
 import ClaimJobReducer from "./claim_job_reducer";
+import ClearUserStatusReducer from "./clear_user_status_reducer";
 import CloseThreadReducer from "./close_thread_reducer";
 import CompleteJobReducer from "./complete_job_reducer";
 import CreateJobReducer from "./create_job_reducer";
@@ -62,6 +63,7 @@ import RegisterAgentReducer from "./register_agent_reducer";
 import RegisterWorkerReducer from "./register_worker_reducer";
 import RemoveAgentFromRoomReducer from "./remove_agent_from_room_reducer";
 import ResolveToolCallReducer from "./resolve_tool_call_reducer";
+import SetUserStatusReducer from "./set_user_status_reducer";
 import SignalEventReducer from "./signal_event_reducer";
 import StartThreadReducer from "./start_thread_reducer";
 import UpdateJobReducer from "./update_job_reducer";
@@ -89,6 +91,7 @@ import RoomAgentRow from "./room_agent_table";
 import RoomHumanRow from "./room_human_table";
 import RoomMemoryEntryRow from "./room_memory_entry_table";
 import RoomPresenceRow from "./room_presence_table";
+import RoomUserStatusRow from "./room_user_status_table";
 import StreamEventRow from "./stream_event_table";
 import ThreadRow from "./thread_table";
 import ToolCallRow from "./tool_call_table";
@@ -303,6 +306,17 @@ const tablesSchema = __schema({
       { name: 'room_presence_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, RoomPresenceRow),
+  roomUserStatus: __table({
+    name: 'room_user_status',
+    indexes: [
+      { accessor: 'by_room', name: 'room_user_status_room_id_identity_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+        'identity',
+      ] },
+    ],
+    constraints: [
+    ],
+  }, RoomUserStatusRow),
   streamEvent: __table({
     name: 'stream_event',
     indexes: [
@@ -380,6 +394,7 @@ const reducersSchema = __reducers(
   __reducerSchema("append_chunk", AppendChunkReducer),
   __reducerSchema("archive_room", ArchiveRoomReducer),
   __reducerSchema("claim_job", ClaimJobReducer),
+  __reducerSchema("clear_user_status", ClearUserStatusReducer),
   __reducerSchema("close_thread", CloseThreadReducer),
   __reducerSchema("complete_job", CompleteJobReducer),
   __reducerSchema("create_job", CreateJobReducer),
@@ -403,6 +418,7 @@ const reducersSchema = __reducers(
   __reducerSchema("register_worker", RegisterWorkerReducer),
   __reducerSchema("remove_agent_from_room", RemoveAgentFromRoomReducer),
   __reducerSchema("resolve_tool_call", ResolveToolCallReducer),
+  __reducerSchema("set_user_status", SetUserStatusReducer),
   __reducerSchema("signal_event", SignalEventReducer),
   __reducerSchema("start_thread", StartThreadReducer),
   __reducerSchema("update_job", UpdateJobReducer),
@@ -440,6 +456,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "room_memory_entry": Omit<typeof tablesSchema.schemaType.tables["roomMemoryEntry"], "accessorName"> & { readonly accessorName: "room_memory_entry" };
     /** @deprecated Use `roomPresence` instead. This alias will be removed in the next major version. */
     readonly "room_presence": Omit<typeof tablesSchema.schemaType.tables["roomPresence"], "accessorName"> & { readonly accessorName: "room_presence" };
+    /** @deprecated Use `roomUserStatus` instead. This alias will be removed in the next major version. */
+    readonly "room_user_status": Omit<typeof tablesSchema.schemaType.tables["roomUserStatus"], "accessorName"> & { readonly accessorName: "room_user_status" };
     /** @deprecated Use `streamEvent` instead. This alias will be removed in the next major version. */
     readonly "stream_event": Omit<typeof tablesSchema.schemaType.tables["streamEvent"], "accessorName"> & { readonly accessorName: "stream_event" };
     /** @deprecated Use `toolCall` instead. This alias will be removed in the next major version. */
@@ -477,6 +495,7 @@ const tableAccessorAliases = {
   "room_human": "roomHuman",
   "room_memory_entry": "roomMemoryEntry",
   "room_presence": "roomPresence",
+  "room_user_status": "roomUserStatus",
   "stream_event": "streamEvent",
   "tool_call": "toolCall",
   "workspace_snapshot": "workspaceSnapshot",
@@ -523,6 +542,8 @@ export type DbView = __DbViewBase & {
   readonly "room_memory_entry": __DbViewBase["roomMemoryEntry"];
   /** @deprecated Use `roomPresence` instead. This alias will be removed in the next major version. */
   readonly "room_presence": __DbViewBase["roomPresence"];
+  /** @deprecated Use `roomUserStatus` instead. This alias will be removed in the next major version. */
+  readonly "room_user_status": __DbViewBase["roomUserStatus"];
   /** @deprecated Use `streamEvent` instead. This alias will be removed in the next major version. */
   readonly "stream_event": __DbViewBase["streamEvent"];
   /** @deprecated Use `toolCall` instead. This alias will be removed in the next major version. */
@@ -557,6 +578,8 @@ export type Tables = __TablesBase & {
   readonly "room_memory_entry": __TablesBase["roomMemoryEntry"];
   /** @deprecated Use `roomPresence` instead. This alias will be removed in the next major version. */
   readonly "room_presence": __TablesBase["roomPresence"];
+  /** @deprecated Use `roomUserStatus` instead. This alias will be removed in the next major version. */
+  readonly "room_user_status": __TablesBase["roomUserStatus"];
   /** @deprecated Use `streamEvent` instead. This alias will be removed in the next major version. */
   readonly "stream_event": __TablesBase["streamEvent"];
   /** @deprecated Use `toolCall` instead. This alias will be removed in the next major version. */

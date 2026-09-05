@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { useStt } from "@/lib/stt";
 
 import { MicIcon } from "../icons";
@@ -7,14 +9,20 @@ import { MicIcon } from "../icons";
 export const MicButton = ({
   connected,
   onText,
+  onRecordingChange,
 }: {
   connected: boolean;
   onText: (text: string) => void;
+  onRecordingChange?: (recording: boolean) => void;
 }) => {
   const { status, supported, toggle } = useStt(onText);
   const recording = status === "recording";
   const transcribing = status === "transcribing";
   const disabled = !supported || !connected || transcribing;
+
+  useEffect(() => {
+    onRecordingChange?.(recording);
+  }, [recording, onRecordingChange]);
 
   let label = "Record voice message";
   if (!supported) {

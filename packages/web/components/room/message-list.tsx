@@ -58,7 +58,8 @@ const isCompact = (m: ChatMessage, prev: ChatMessage | undefined): boolean => {
     prev.role === m.role &&
     !m.streaming &&
     !prev.streaming &&
-    !m.toolCall
+    !m.toolCall &&
+    !(m.toolCalls && m.toolCalls.length > 0)
   );
 };
 
@@ -154,15 +155,15 @@ export const MessageList = ({
           </span>{" "}
           routes,{" "}
           <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
-            @researcher
+            @res
           </span>{" "}
           searches,{" "}
           <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
-            @marketing
+            @mkt
           </span>{" "}
           analyzes,{" "}
           <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
-            @evaluator
+            @eval
           </span>{" "}
           decides. Memory compounds across every thread.
         </p>

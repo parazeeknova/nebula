@@ -59,12 +59,7 @@ export const Landing = () => (
     <header className="border-line/70 supports-[backdrop-filter]:bg-abyss/70 fixed inset-x-0 top-0 z-50 border-b backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-5">
         <a href="#top" className="flex items-center gap-2.5">
-          <span className="bg-blurple grid h-6 w-6 place-items-center text-[12px] font-extrabold text-white shadow-[0_0_18px_rgba(88,101,242,0.6)]">
-            N
-          </span>
-          <span className="text-[15px] font-bold tracking-tight text-white">
-            neb
-          </span>
+          <img src="/nebula.svg" alt="Neb" className="h-6 w-auto" />
         </a>
         <nav
           className="text-ink-faint ml-4 hidden items-center gap-6 text-[13px] font-semibold sm:flex"
@@ -81,7 +76,7 @@ export const Landing = () => (
           </a>
         </nav>
         <Link
-          href="/app?entry=1"
+          href={{ pathname: "/app", query: { entry: "1" } }}
           className="bg-blurple hover:bg-blurple-deep ml-auto px-4 py-2 text-[13px] font-bold text-white shadow-[0_4px_18px_rgba(88,101,242,0.45)] transition"
         >
           Open app
@@ -129,7 +124,7 @@ export const Landing = () => (
           </p>
           <div className="animate-fade-up-3 mt-8 flex items-center justify-center gap-3">
             <Link
-              href="/app?entry=1"
+              href={{ pathname: "/app", query: { entry: "1" } }}
               className="bg-blurple hover:bg-blurple-deep px-6 py-3 text-[14px] font-bold text-white shadow-[0_6px_28px_rgba(88,101,242,0.5)] transition"
             >
               Open the workspace
@@ -350,7 +345,7 @@ export const Landing = () => (
           </p>
           <div className="mt-9 flex items-center justify-center gap-3">
             <Link
-              href="/app?entry=1"
+              href={{ pathname: "/app", query: { entry: "1" } }}
               className="bg-blurple hover:bg-blurple-deep px-7 py-3.5 text-[14px] font-bold text-white shadow-[0_6px_28px_rgba(88,101,242,0.5)] transition"
             >
               Open the workspace

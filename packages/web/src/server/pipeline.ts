@@ -1,8 +1,12 @@
+import { runCode } from "./agents/code";
+import { runCopy } from "./agents/copy";
 import { runEvaluation } from "./agents/evaluation";
 import { runMarketAnalysis } from "./agents/market-analysis";
 import { CONFIDENCE_THRESHOLD, planRouting } from "./agents/orchestrator";
+import { runProduct } from "./agents/product";
 import { isAgentName } from "./agents/registry";
 import type { AgentName } from "./agents/registry";
+import { runSupport } from "./agents/support";
 import { synthesize } from "./agents/synthesize";
 import type {
   AgentOutput,
@@ -96,6 +100,18 @@ const runSingleAgent = (
       memory
     );
   }
+  if (agent === "code") {
+    return runCode(planned.task, planned.context, memory);
+  }
+  if (agent === "copy") {
+    return runCopy(planned.task, planned.context, memory);
+  }
+  if (agent === "pm") {
+    return runProduct(planned.task, planned.context, memory);
+  }
+  if (agent === "support") {
+    return runSupport(planned.task, planned.context, memory);
+  }
   return runEvaluation(
     planned.task,
     planned.context,
@@ -114,6 +130,14 @@ const storeResult = (
     results.web_result = output;
   } else if (agent === "market" && "market_summary" in output) {
     results.market_result = output;
+  } else if (agent === "code" && "code" in output) {
+    results.code_result = output;
+  } else if (agent === "copy" && "draft" in output) {
+    results.copy_result = output;
+  } else if (agent === "pm" && "user_stories" in output) {
+    results.pm_result = output;
+  } else if (agent === "support" && "answer" in output) {
+    results.support_result = output;
   } else if (agent === "evaluation" && "decision" in output) {
     results.evaluation_result = output;
   }
@@ -159,8 +183,12 @@ const executeFullInvestigation = async (
   memory?: string
 ): Promise<AgentResults> => {
   const results: AgentResults = {
+    code_result: null,
+    copy_result: null,
     evaluation_result: null,
     market_result: null,
+    pm_result: null,
+    support_result: null,
     web_result: null,
   };
   const webPlanned = taskOf(routing, "web");
@@ -218,8 +246,12 @@ const executeAgents = async (
   memory?: string
 ): Promise<AgentResults> => {
   const results: AgentResults = {
+    code_result: null,
+    copy_result: null,
     evaluation_result: null,
     market_result: null,
+    pm_result: null,
+    support_result: null,
     web_result: null,
   };
   const selected = routing.agents;
@@ -292,9 +324,13 @@ const runRoutedPipeline = async (
     );
     const results = await executeAgents(jobId, routing, firstOrder, memory);
     const synthesisInput = {
+      code_result: results.code_result,
+      copy_result: results.copy_result,
       evaluation_result: results.evaluation_result,
       market_result: results.market_result,
       original_prompt: prompt,
+      pm_result: results.pm_result,
+      support_result: results.support_result,
       web_result: results.web_result,
     };
     const finalAnswer: FinalAnswer = await recordStep(

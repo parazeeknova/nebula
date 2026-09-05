@@ -1,5 +1,8 @@
 export const config = {
-  fallbackModel: process.env.GENERALCOMPUTE_FALLBACK_MODEL ?? "gemma-4-31B-it",
+  fallbackModel:
+    process.env.NEBULA_FALLBACK_MODEL ??
+    process.env.GENERALCOMPUTE_FALLBACK_MODEL ??
+    "openai::gpt-5-nano",
   firecrawlApiKey: process.env.FIRECRAWL_API_KEY ?? "",
   firecrawlBaseUrl:
     process.env.FIRECRAWL_BASE_URL ?? "https://api.firecrawl.dev",
@@ -10,7 +13,10 @@ export const config = {
   honchoBaseUrl: process.env.HONCHO_BASE_URL ?? "https://api.honcho.dev",
   honchoWorkspaceId: process.env.HONCHO_WORKSPACE_ID ?? "nebula",
   llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 120_000),
-  model: process.env.GENERALCOMPUTE_MODEL ?? "gpt-oss-120b",
+  model:
+    process.env.NEBULA_DEFAULT_MODEL ??
+    process.env.GENERALCOMPUTE_MODEL ??
+    "openai::gpt-5.6-luna",
   openaiApiKey: process.env.OPENAI_PROVIDER_API_KEY ?? "",
   openaiBaseUrl:
     process.env.OPENAI_PROVIDER_BASE_URL ?? "https://api.openai.com/v1",

@@ -178,7 +178,9 @@ const RoomListItem = ({
                 : "text-ink-ghost group-hover:text-ink-dim"
             }`}
           />
-          <span className="min-w-0 flex-1 truncate">{room.name}</span>
+          <span className="min-w-0 flex-1 truncate transition group-hover:text-white group-hover:underline group-hover:decoration-white/60 group-hover:decoration-2 group-hover:underline-offset-4">
+            {room.name}
+          </span>
           {room.unread && !active ? (
             <span
               className="bg-blurple h-2 w-2 shrink-0 shadow-[0_0_6px_rgba(88,101,242,0.8)]"
@@ -265,21 +267,18 @@ export const Sidebar = ({
           <button
             onClick={onToggleCollapse}
             title="Expand sidebar (⌘B)"
-            className="bg-blurple-soft mx-auto grid h-7 w-7 place-items-center text-xs font-bold text-[#8b9bff] transition hover:brightness-125"
+            className="mx-auto flex h-full items-center justify-center px-1.5 transition hover:opacity-80"
           >
-            N
+            <img src="/nebula.svg" alt="Nebula" className="h-5 w-auto" />
           </button>
         ) : (
           <>
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="bg-blurple-soft grid h-7 w-7 shrink-0 place-items-center text-xs font-bold text-[#8b9bff] shadow-[0_0_12px_rgba(88,101,242,0.35)]">
-                N
-              </span>
-              <div className="flex min-w-0 flex-col">
-                <span className="font-display truncate text-[14px] font-bold tracking-tight text-white">
-                  Nebula
-                </span>
-              </div>
+              <img
+                src="/nebula.svg"
+                alt="Nebula"
+                className="h-6 w-auto shrink-0"
+              />
             </div>
             <div className="flex items-center gap-1">
               <button
@@ -383,9 +382,6 @@ export const Sidebar = ({
                 <button className="text-ink-dim hover:text-ink flex w-full items-center gap-2 px-2 py-[7px] text-left text-[13.5px] font-medium transition hover:bg-white/[0.04]">
                   <CompassIcon className="text-ink-ghost h-4 w-4" />
                   <span className="flex-1 truncate">Overview</span>
-                  <span className="bg-blurple-soft px-1.5 py-px font-mono text-[10px] font-semibold text-[#8b9bff]">
-                    live
-                  </span>
                 </button>
               </li>
             </ul>

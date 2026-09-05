@@ -11,6 +11,7 @@ import {
   useSendMessage,
   useStreamTicks,
   useTypingNotifier,
+  useVoiceNotifier,
 } from "@/lib/live";
 
 import { Composer } from "./composer";
@@ -19,7 +20,6 @@ import { MembersPanel } from "./members-panel";
 import { MergeBanner } from "./merge-banner";
 import { MessageList } from "./message-list";
 import { ChatSkeleton, PeopleSkeleton } from "./placeholders";
-import { RenameRoomModal } from "./rename-room-modal";
 import { RoomHeader } from "./room-header";
 import { ShareModal } from "./share-modal";
 import { ThreadPane } from "./thread-pane";
@@ -48,6 +48,7 @@ export const RoomView = ({
     me.identityHex,
     me.displayName
   );
+  const { setSpeaking } = useVoiceNotifier(roomId, me.identityHex);
   const { send, armNewThread, newThreadArmed, busyNotice, clearBusyNotice } =
     useSendMessage(roomId, data.generalThread, data.agents, data.jobs);
   useRoomPresence(roomId, connected && ready);
@@ -55,7 +56,6 @@ export const RoomView = ({
   const [activeThreadId, setActiveThreadId] = useState<bigint | null>(null);
   const [membersOpen, setMembersOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
-  const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [fallback, setFallback] = useState(false);
 
@@ -220,7 +220,7 @@ export const RoomView = ({
           onNewThread={armNewThread}
           onShare={() => setShareOpen(true)}
           onOpenNav={onOpenNav}
-          onRename={() => setRenameOpen(true)}
+          onRename={(newName) => renameRoom(room.roomId, newName)}
           onDelete={() => setDeleteOpen(true)}
         />
 
@@ -279,6 +279,7 @@ export const RoomView = ({
           onSend={send}
           onTyping={startTyping}
           onStopTyping={stopTyping}
+          onVoiceChange={(recording) => setSpeaking(recording)}
         />
       </div>
 
@@ -334,6 +335,7 @@ export const RoomView = ({
               humans={data.humans}
               onTyping={startTyping}
               onStopTyping={stopTyping}
+              onVoiceChange={(recording) => setSpeaking(recording)}
               onClose={() => setActiveThreadId(null)}
             />
           </div>
@@ -361,13 +363,6 @@ export const RoomView = ({
           onClose={() => setShareOpen(false)}
         />
       )}
-
-      <RenameRoomModal
-        initialName={room.name}
-        isOpen={renameOpen}
-        onClose={() => setRenameOpen(false)}
-        onRename={(newName) => renameRoom(room.roomId, newName)}
-      />
 
       <DeleteRoomModal
         isOpen={deleteOpen}

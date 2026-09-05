@@ -72,7 +72,11 @@ export const WorkspaceShell = () => {
     const hasEntryParam =
       params.get("entry") === "1" || params.get("entry") === "true";
     const session = getUserSession();
-    if (hasEntryParam || (!session.hasSession && rooms.length === 0)) {
+    // Only show onboarding for a genuinely new user: no onboarded marker AND
+    // (explicit entry param OR no rooms yet). Returning members with an
+    // onboarded session must never see it again.
+    const isNewUser = !session.onboarded;
+    if (isNewUser && (hasEntryParam || rooms.length === 0)) {
       setShowEntryFlow(true);
     }
   }, [rooms.length]);

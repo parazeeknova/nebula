@@ -1,16 +1,25 @@
+import { handleForName } from "../../lib/agent-handles";
 import { DbConnection } from "../module_bindings";
 import type { AiJob, Message, ToolCall } from "../module_bindings/types";
+import { runCode } from "./agents/code";
+import { runCopy } from "./agents/copy";
 import { runEvaluation } from "./agents/evaluation";
 import { runMarketAnalysis } from "./agents/market-analysis";
 import { CONFIDENCE_THRESHOLD, planRouting } from "./agents/orchestrator";
+import { runProduct } from "./agents/product";
 import { HANDLE_TO_AGENT, isAgentHandle } from "./agents/registry";
 import type { AgentName, AgentRoute } from "./agents/registry";
-import { synthesize } from "./agents/synthesize";
+import { runSupport } from "./agents/support";
+import { synthesize, synthesizeStream } from "./agents/synthesize";
 import type {
   AgentResults,
   AgentOutput,
+  CodeOutput,
+  CopyOutput,
   EvaluationOutput,
   MarketAnalysisOutput,
+  ProductOutput,
+  SupportOutput,
   WebResearchOutput,
 } from "./agents/types";
 import { runWebResearch } from "./agents/web-research";
@@ -22,6 +31,7 @@ import {
   recordMessages,
 } from "./honcho";
 import { withModel } from "./llm";
+import { TokenBuffer } from "./stream-buffer";
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -35,11 +45,23 @@ const log = (...args: unknown[]): void => {
 const errMsg = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const ORDER: AgentName[] = ["web", "market", "evaluation"];
+const ORDER: AgentName[] = [
+  "web",
+  "market",
+  "code",
+  "copy",
+  "pm",
+  "support",
+  "evaluation",
+];
 
 const TOOL_BY_AGENT: Record<AgentName, string> = {
+  code: "code_review",
+  copy: "draft_copy",
   evaluation: "evaluate",
   market: "market_analysis",
+  pm: "write_spec",
+  support: "draft_response",
   web: "web_search",
 };
 
@@ -110,19 +132,39 @@ const waitForReplyMessage = async (
 
 const newestRunningTool = (
   conn: DbConnection,
-  jobId: bigint
+  jobId: bigint,
+  tool: string,
+  afterCallId?: bigint
 ): ToolCall | null => {
   let newest: ToolCall | null = null;
   for (const t of conn.db.toolCall.iter()) {
-    if (
-      t.jobId === jobId &&
-      t.status === 1 &&
-      (newest === null || t.callId > newest.callId)
-    ) {
+    if (t.jobId !== jobId || t.status !== 1 || t.tool !== tool) {
+      continue;
+    }
+    if (afterCallId !== undefined && t.callId <= afterCallId) {
+      continue;
+    }
+    if (newest === null || t.callId > newest.callId) {
       newest = t;
     }
   }
   return newest;
+};
+
+const maxCallIdForJob = (
+  conn: DbConnection,
+  jobId: bigint
+): bigint | undefined => {
+  let max: bigint | undefined;
+  for (const t of conn.db.toolCall.iter()) {
+    if (t.jobId !== jobId) {
+      continue;
+    }
+    if (max === undefined || t.callId > max) {
+      max = t.callId;
+    }
+  }
+  return max;
 };
 
 const runAgentFor = (
@@ -141,6 +183,18 @@ const runAgentFor = (
       results.web_result ?? undefined,
       memory
     );
+  }
+  if (agent === "code") {
+    return runCode(task, undefined, memory);
+  }
+  if (agent === "copy") {
+    return runCopy(task, undefined, memory);
+  }
+  if (agent === "pm") {
+    return runProduct(task, undefined, memory);
+  }
+  if (agent === "support") {
+    return runSupport(task, undefined, memory);
   }
   return runEvaluation(
     task,
@@ -161,6 +215,14 @@ const resultsWith = (
     next.web_result = output as WebResearchOutput;
   } else if (agent === "market" && "market_summary" in output) {
     next.market_result = output as MarketAnalysisOutput;
+  } else if (agent === "code" && "code" in output) {
+    next.code_result = output as CodeOutput;
+  } else if (agent === "copy" && "draft" in output) {
+    next.copy_result = output as CopyOutput;
+  } else if (agent === "pm" && "user_stories" in output) {
+    next.pm_result = output as ProductOutput;
+  } else if (agent === "support" && "answer" in output) {
+    next.support_result = output as SupportOutput;
   } else if (agent === "evaluation" && "decision" in output) {
     next.evaluation_result = output as EvaluationOutput;
   }
@@ -177,6 +239,9 @@ const runAgentWithTool = async (
   memory?: string
 ): Promise<AgentResults> => {
   const tool = TOOL_BY_AGENT[agent];
+  // Snapshot before logging so resolve() targets the row WE created, not a
+  // stale running row left by a previous crashed run.
+  const prevMax = maxCallIdForJob(conn, jobId);
   await conn.reducers.logToolCall({
     input: task.slice(0, 8000),
     jobId,
@@ -190,8 +255,12 @@ const runAgentWithTool = async (
   try {
     const outcome = await runAgentFor(agent, task, results, memory);
     const next = resultsWith(results, agent, outcome);
-    const call = newestRunningTool(conn, jobId);
-    if (call !== null) {
+    const call = newestRunningTool(conn, jobId, tool, prevMax);
+    if (call === null) {
+      log(
+        `job ${jobId} tool ${tool}: no running call found to resolve (cache may lag)`
+      );
+    } else {
       await conn.reducers.resolveToolCall({
         callId: call.callId,
         output: JSON.stringify(outcome).slice(0, 8000),
@@ -205,8 +274,12 @@ const runAgentWithTool = async (
     });
     return next;
   } catch (error) {
-    const call = newestRunningTool(conn, jobId);
-    if (call !== null) {
+    const call = newestRunningTool(conn, jobId, tool, prevMax);
+    if (call === null) {
+      log(
+        `job ${jobId} tool ${tool}: no running call found to fail (cache may lag)`
+      );
+    } else {
       await conn.reducers.resolveToolCall({
         callId: call.callId,
         output: errMsg(error).slice(0, 8000),
@@ -224,16 +297,29 @@ const produceAnswer = async (
   jobId: bigint,
   prompt: string,
   route: AgentRoute,
-  memory?: string
+  memory?: string,
+  onToken?: (token: string) => Promise<void>
 ): Promise<string> => {
   const results: AgentResults = {
+    code_result: null,
+    copy_result: null,
     evaluation_result: null,
     market_result: null,
+    pm_result: null,
+    support_result: null,
     web_result: null,
   };
 
   let agents: AgentName[];
-  if (route === "web" || route === "market" || route === "evaluation") {
+  if (
+    route === "web" ||
+    route === "market" ||
+    route === "code" ||
+    route === "copy" ||
+    route === "pm" ||
+    route === "support" ||
+    route === "evaluation"
+  ) {
     agents = [route];
   } else {
     const routing = await planRouting(prompt, memory);
@@ -265,10 +351,17 @@ const produceAnswer = async (
     );
     results2.web_result = next.web_result;
     results2.market_result = next.market_result;
+    results2.code_result = next.code_result;
+    results2.copy_result = next.copy_result;
+    results2.pm_result = next.pm_result;
+    results2.support_result = next.support_result;
     results2.evaluation_result = next.evaluation_result;
   }
 
-  const final = await synthesize(prompt, results2, memory);
+  const final =
+    onToken === undefined
+      ? await synthesize(prompt, results2, memory)
+      : await synthesizeStream(prompt, results2, memory, onToken);
   return final.answer;
 };
 
@@ -385,6 +478,59 @@ const writeMemoryFor = async (
   }
 };
 
+/**
+ * Produce the final answer with live token streaming: each model delta is
+ * flushed to message_chunk rows as it arrives, so the UI streams instead of
+ * waiting for the whole answer. Degrades gracefully:
+ * - stream dies mid-answer -> finalize whatever arrived (nothing is wiped);
+ * - nothing streamed at all -> legacy buffered synthesize + chunk replay.
+ */
+const streamFinalAnswer = async (
+  conn: DbConnection,
+  job: AiJob,
+  messageId: bigint,
+  route: AgentRoute,
+  memory?: string
+): Promise<string> => {
+  const buffer = new TokenBuffer(async (delta, idx) => {
+    await conn.reducers.appendChunk({ delta, idx, messageId });
+  });
+  try {
+    const answer = await withModel(job.model, () =>
+      produceAnswer(
+        conn,
+        messageId,
+        job.jobId,
+        job.prompt,
+        route,
+        memory,
+        (token) => buffer.push(token)
+      )
+    );
+    await buffer.done();
+    return answer;
+  } catch (error) {
+    if (buffer.text.trim().length > 0) {
+      log(
+        `job ${job.jobId} stream interrupted, finalizing ${buffer.length} partial chars: ${errMsg(error)}`
+      );
+      try {
+        return await buffer.done();
+      } catch {
+        return buffer.text;
+      }
+    }
+    log(
+      `job ${job.jobId} live stream failed, falling back to buffered answer: ${errMsg(error)}`
+    );
+    const answer = await withModel(job.model, () =>
+      produceAnswer(conn, messageId, job.jobId, job.prompt, route, memory)
+    );
+    await streamAnswer(conn, messageId, answer);
+    return answer;
+  }
+};
+
 const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
   log(`claiming job ${job.jobId}: "${job.prompt.slice(0, 80)}"`);
   let messageId: bigint | null = null;
@@ -405,7 +551,7 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
     const assistantAgentId = tagged;
     for (const a of conn.db.agent.iter()) {
       if (a.agentId === tagged) {
-        handle = (a.name.split(" ")[0] ?? "").toLowerCase();
+        handle = handleForName(a.name);
       }
     }
     if (!isAgentHandle(handle)) {
@@ -430,17 +576,7 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
       });
     }
 
-    const answer = await withModel(job.model, () =>
-      produceAnswer(
-        conn,
-        messageId as bigint,
-        job.jobId,
-        job.prompt,
-        route,
-        memory
-      )
-    );
-    await streamAnswer(conn, messageId, answer);
+    const answer = await streamFinalAnswer(conn, job, messageId, route, memory);
     await conn.reducers.completeJob({
       finalBody: "",
       jobId: job.jobId,

@@ -18,6 +18,7 @@ interface Props {
   onSend: (body: string, mentions: bigint[], model?: string) => void;
   onTyping?: () => void;
   onStopTyping?: () => void;
+  onVoiceChange?: (recording: boolean) => void;
 }
 
 interface ModelOption {
@@ -26,7 +27,7 @@ interface ModelOption {
   provider?: string;
 }
 
-const DEFAULT_MODEL = "gpt-oss-120b";
+const DEFAULT_MODEL = "openai::gpt-5.6-luna";
 
 const formatRef = (ref: string): { label: string; provider?: string } => {
   const sep = ref.indexOf("::");
@@ -314,6 +315,7 @@ export const Composer = ({
   onSend,
   onTyping,
   onStopTyping,
+  onVoiceChange,
 }: Props) => {
   const [value, setValue] = useState("");
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -333,7 +335,8 @@ export const Composer = ({
       )
       .map((a) => ({
         bot: true,
-        color: "#5865f2",
+        color: a.color,
+        icon: a.icon,
         id: a.agentId,
         kind: "agent" as const,
         label: a.handle,
@@ -345,6 +348,7 @@ export const Composer = ({
       .map((h) => ({
         bot: false,
         color: h.color,
+        icon: undefined,
         id: null,
         kind: "human" as const,
         label: h.displayName,
@@ -512,6 +516,7 @@ export const Composer = ({
                       color={c.color}
                       size={28}
                       bot={c.bot}
+                      icon={c.icon}
                     />
                     <span className="min-w-0 flex-1 leading-tight">
                       <span className="text-ink flex items-center gap-1.5 text-[13px] font-bold">
@@ -604,7 +609,7 @@ export const Composer = ({
             placeholder={
               variant === "thread"
                 ? "Steer agents in this thread — @mention to focus…"
-                : "Message the room — @neb, @marketing, @researcher…"
+                : "Message the room — @neb, @mkt, @res…"
             }
             disabled={!connected}
             aria-expanded={mentionOpen}
@@ -624,7 +629,11 @@ export const Composer = ({
             }
             className="text-ink placeholder:text-ink-ghost max-h-[140px] min-h-[24px] w-full resize-none bg-transparent text-[14px] leading-relaxed outline-none disabled:opacity-50"
           />
-          <MicButton connected={connected} onText={appendVoiceText} />
+          <MicButton
+            connected={connected}
+            onText={appendVoiceText}
+            onRecordingChange={onVoiceChange}
+          />
           <button
             type="submit"
             disabled={!value.trim() || !connected}
