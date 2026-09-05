@@ -12,13 +12,42 @@ import type {
   RoutingDecision,
 } from "./agents/types";
 import { runWebResearch } from "./agents/web-research";
-import { addStepRow, updateJobRow, updateStepRow } from "./db";
+import {
+  addStepRow,
+  getRoomMemoryConfig,
+  updateJobRow,
+  updateStepRow,
+} from "./db";
+import { pullRoomMemory } from "./honcho";
 import { getSystemAnswer, isSystemQuery } from "./system";
 
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 const toJson = (value: unknown): string => JSON.stringify(value);
+
+/** Resolve a room's Honcho context for a room-scoped job, or "" when unavailable. */
+const loadRoomMemory = async (
+  roomId: bigint,
+  prompt: string
+): Promise<string> => {
+  try {
+    const room = await getRoomMemoryConfig(roomId);
+    if (room === null || room.backend !== "honcho") {
+      return "";
+    }
+    const mem = await pullRoomMemory(room.namespace, {
+      prompt,
+      targetPeer: "user",
+    });
+    return mem.context;
+  } catch (error) {
+    console.error(
+      `failed to load room memory for room ${roomId}: ${errorMessage(error)}`
+    );
+    return "";
+  }
+};
 
 const recordStep = async <T>(
   jobId: string,
@@ -53,23 +82,26 @@ const taskOf = (routing: RoutingDecision, agent: AgentName): PlannedTask =>
 const runSingleAgent = (
   agent: AgentName,
   planned: PlannedTask,
-  results: AgentResults
+  results: AgentResults,
+  memory?: string
 ): Promise<AgentOutput> => {
   if (agent === "web") {
-    return runWebResearch(planned.task, planned.context);
+    return runWebResearch(planned.task, planned.context, memory);
   }
   if (agent === "market") {
     return runMarketAnalysis(
       planned.task,
       planned.context,
-      results.web_result ?? undefined
+      results.web_result ?? undefined,
+      memory
     );
   }
   return runEvaluation(
     planned.task,
     planned.context,
     results.web_result ?? undefined,
-    results.market_result ?? undefined
+    results.market_result ?? undefined,
+    memory
   );
 };
 
@@ -123,7 +155,8 @@ const throwIfFailed = (outcome: ParallelOutcome): AgentOutput => {
 const executeFullInvestigation = async (
   jobId: string,
   routing: RoutingDecision,
-  firstOrder: number
+  firstOrder: number,
+  memory?: string
 ): Promise<AgentResults> => {
   const results: AgentResults = {
     evaluation_result: null,
@@ -142,14 +175,20 @@ const executeFullInvestigation = async (
       "web",
       webOrder,
       { context: webPlanned.context, task: webPlanned.task },
-      () => runWebResearch(webPlanned.task, webPlanned.context)
+      () => runWebResearch(webPlanned.task, webPlanned.context, memory)
     ),
     runParallelStep(
       jobId,
       "market",
       marketOrder,
       { context: marketPlanned.context, task: marketPlanned.task },
-      () => runMarketAnalysis(marketPlanned.task, marketPlanned.context)
+      () =>
+        runMarketAnalysis(
+          marketPlanned.task,
+          marketPlanned.context,
+          undefined,
+          memory
+        )
     ),
   ]);
   storeResult(results, "web", throwIfFailed(webOutcome));
@@ -164,7 +203,8 @@ const executeFullInvestigation = async (
         evaluationPlanned.task,
         evaluationPlanned.context,
         results.web_result ?? undefined,
-        results.market_result ?? undefined
+        results.market_result ?? undefined,
+        memory
       )
   );
   storeResult(results, "evaluation", evaluationOutput);
@@ -174,7 +214,8 @@ const executeFullInvestigation = async (
 const executeAgents = async (
   jobId: string,
   routing: RoutingDecision,
-  firstOrder: number
+  firstOrder: number,
+  memory?: string
 ): Promise<AgentResults> => {
   const results: AgentResults = {
     evaluation_result: null,
@@ -187,7 +228,7 @@ const executeAgents = async (
     selected.includes("market") &&
     selected.includes("evaluation");
   if (full) {
-    return await executeFullInvestigation(jobId, routing, firstOrder);
+    return await executeFullInvestigation(jobId, routing, firstOrder, memory);
   }
   let order = firstOrder;
   for (const agent of selected) {
@@ -199,7 +240,7 @@ const executeAgents = async (
       agent,
       order,
       { context: planned.context, task: planned.task },
-      () => runSingleAgent(agent, planned, results)
+      () => runSingleAgent(agent, planned, results, memory)
     );
     storeResult(results, agent, output);
   }
@@ -210,7 +251,8 @@ const runRoutedPipeline = async (
   jobId: string,
   prompt: string,
   routing: RoutingDecision,
-  firstOrder = 0
+  firstOrder = 0,
+  memory?: string
 ): Promise<void> => {
   let selectedAgents: string | undefined;
   const startedAt = Date.now();
@@ -248,7 +290,7 @@ const runRoutedPipeline = async (
     console.info(
       `[job ${jobId}] executing agents: [${routing.agents.join(", ")}]`
     );
-    const results = await executeAgents(jobId, routing, firstOrder);
+    const results = await executeAgents(jobId, routing, firstOrder, memory);
     const synthesisInput = {
       evaluation_result: results.evaluation_result,
       market_result: results.market_result,
@@ -260,7 +302,7 @@ const runRoutedPipeline = async (
       "synthesis",
       firstOrder + routing.agents.length + 1,
       synthesisInput,
-      () => synthesize(prompt, results)
+      () => synthesize(prompt, results, memory)
     );
     if (finalAnswer.answer.trim().length === 0) {
       throw new Error("synthesis did not return an answer");
@@ -284,11 +326,22 @@ const runRoutedPipeline = async (
 export const runPipeline = async (
   jobId: string,
   prompt: string,
-  requestedAgent?: AgentName
+  requestedAgent?: AgentName,
+  roomId?: bigint
 ): Promise<void> => {
   let selectedAgents: string | undefined;
+  let memory: string | undefined;
   try {
     await updateJobRow(jobId, { status: "running" });
+
+    if (roomId !== undefined) {
+      memory = await loadRoomMemory(roomId, prompt);
+      if (memory) {
+        console.info(
+          `[job ${jobId}] loaded room memory (${memory.length} chars)`
+        );
+      }
+    }
 
     if (requestedAgent && isAgentName(requestedAgent)) {
       const routing: RoutingDecision = {
@@ -308,7 +361,7 @@ export const runPipeline = async (
         toJson({ prompt })
       );
       await updateStepRow(orchestratorStepId, toJson(routing), "completed");
-      await runRoutedPipeline(jobId, prompt, routing, 1);
+      await runRoutedPipeline(jobId, prompt, routing, 1, memory);
       return;
     }
 
@@ -329,7 +382,7 @@ export const runPipeline = async (
 
     console.info(`[job ${jobId}] calling orchestrator for routing`);
     const routingStartedAt = Date.now();
-    const routing = await planRouting(prompt);
+    const routing = await planRouting(prompt, memory);
     console.info(
       `[job ${jobId}] routed in ${Date.now() - routingStartedAt}ms → route=${routing.route} agents=[${routing.agents.join(",") || "none"}] conf=${routing.confidence}`
     );
@@ -342,7 +395,7 @@ export const runPipeline = async (
       toJson({ prompt })
     );
     await updateStepRow(orchestratorStepId, toJson(routing), "completed");
-    await runRoutedPipeline(jobId, prompt, routing, 1);
+    await runRoutedPipeline(jobId, prompt, routing, 1, memory);
   } catch (error) {
     console.error(`[job ${jobId}] PIPELINE FAILED: ${errorMessage(error)}`);
     await updateJobRow(jobId, {

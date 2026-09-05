@@ -288,6 +288,7 @@ const agent_job = table(
     job_id: t.string().primaryKey(),
     prompt: t.string(),
     requested_agent: t.option(t.string()),
+    room_id: t.option(t.u64()),
     selected_agents: t.option(t.string()),
     status: t.string(),
     updated_at: t.timestamp(),
@@ -1260,8 +1261,9 @@ export const createJob = spacetimedb.reducer(
     job_id: t.string(),
     prompt: t.string(),
     requested_agent: t.option(t.string()),
+    room_id: t.option(t.u64()),
   },
-  (ctx, { job_id, prompt, requested_agent }) => {
+  (ctx, { job_id, prompt, requested_agent, room_id }) => {
     const id = job_id.trim();
     if (id.length === 0) {
       throw new SenderError("job_id must not be empty");
@@ -1272,6 +1274,9 @@ export const createJob = spacetimedb.reducer(
     if (ctx.db.agent_job.job_id.find(id)) {
       throw new SenderError("job already exists");
     }
+    if (room_id !== undefined && !ctx.db.room.room_id.find(room_id)) {
+      throw new SenderError("room not found");
+    }
     ctx.db.agent_job.insert({
       created_at: ctx.timestamp,
       error: undefined,
@@ -1279,6 +1284,7 @@ export const createJob = spacetimedb.reducer(
       job_id: id,
       prompt,
       requested_agent,
+      room_id,
       selected_agents: undefined,
       status: "queued",
       updated_at: ctx.timestamp,

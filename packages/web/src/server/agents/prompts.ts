@@ -1,5 +1,10 @@
 import { AGENTS, AGENT_NAMES } from "./registry";
 
+export const memoryBlock = (memory?: string): string =>
+  memory && memory.trim().length > 0
+    ? `\n\nRoom context from long-term memory (this room's prior conversations, to ground your answer and respect established facts/preferences):\n${memory.trim()}`
+    : "";
+
 export const buildOrchestratorSystem = (): string => {
   const agentList = AGENT_NAMES.map(
     (agent) =>
@@ -85,7 +90,7 @@ export const evaluationSystem = (): string =>
 
 Rules:
 - Evaluate exactly the objective stated in the task. Never substitute a different decision.
-- Weigh evidence from any provided research or market analysis. Call out weak or missing evidence as assumptions.
+- Weigh evidence from any provided research or market analysis. Call out weak or missing evidence as assumption/** Format an optional room-memory context block, or "" when absent. */s.
 - decision must be exactly one of: BUILD, SKIP, INVESTIGATE.
 - confidence must be a number between 0 and 1.
 - If the objective is too vague to evaluate, return status "insufficient_context" instead of guessing.

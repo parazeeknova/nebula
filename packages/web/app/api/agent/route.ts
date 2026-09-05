@@ -18,7 +18,11 @@ export const POST = async (request: Request): Promise<Response> => {
       { status: 400 }
     );
   }
-  const { agent, prompt } = body as { agent?: unknown; prompt?: unknown };
+  const { agent, prompt, roomId } = body as {
+    agent?: unknown;
+    prompt?: unknown;
+    roomId?: unknown;
+  };
   if (typeof prompt !== "string" || prompt.trim().length === 0) {
     return Response.json(
       { error: "prompt must be a non-empty string" },
@@ -31,11 +35,21 @@ export const POST = async (request: Request): Promise<Response> => {
       { status: 400 }
     );
   }
+  const room =
+    typeof roomId === "string" && /^\d+$/u.test(roomId)
+      ? BigInt(roomId)
+      : undefined;
+  if (roomId !== undefined && room === undefined) {
+    return Response.json(
+      { error: "roomId must be a positive integer string" },
+      { status: 400 }
+    );
+  }
 
   const jobId = crypto.randomUUID();
   const requestedAgent = agent as AgentName | undefined;
   try {
-    await createJobRow(jobId, prompt, requestedAgent);
+    await createJobRow(jobId, prompt, requestedAgent, room);
   } catch (error) {
     return Response.json(
       { error: `failed to create job: ${errorText(error)}` },
@@ -45,7 +59,7 @@ export const POST = async (request: Request): Promise<Response> => {
 
   void (async () => {
     try {
-      await runPipeline(jobId, prompt, requestedAgent);
+      await runPipeline(jobId, prompt, requestedAgent, room);
     } catch (error) {
       console.error(`pipeline failed for job ${jobId}:`, error);
     }

@@ -1,11 +1,12 @@
 import { firecrawlSearch } from "../firecrawl";
 import { chatJson } from "../llm";
-import { webResearchSystem } from "./prompts";
+import { memoryBlock, webResearchSystem } from "./prompts";
 import type { TaskContext, WebResearchOutput } from "./types";
 
 export const runWebResearch = async (
   task: string,
-  context?: TaskContext
+  context?: TaskContext,
+  memory?: string
 ): Promise<WebResearchOutput> => {
   const results = await firecrawlSearch(task);
   const listing =
@@ -19,6 +20,6 @@ export const runWebResearch = async (
     : "";
   return chatJson<WebResearchOutput>(
     webResearchSystem(),
-    `Task: ${task}${hint}\n\nSearch results:\n${listing}`
+    `Task: ${task}${hint}${memoryBlock(memory)}\n\nSearch results:\n${listing}`
   );
 };

@@ -17,6 +17,7 @@ export interface JobJson {
   job_id: string;
   prompt: string;
   requested_agent: string | null;
+  room_id: string | null;
   status: string;
   selected_agents: string | null;
   final_result: string | null;
@@ -25,6 +26,14 @@ export interface JobJson {
   updated_at: string;
   steps: StepJson[];
 }
+
+export interface RoomMemoryConfig {
+  backend: string;
+  namespace: string;
+}
+
+const toIso = (micros: bigint): string =>
+  new Date(Number(micros / 1000n)).toISOString();
 
 let writerPromise: Promise<DbConnection> | null = null;
 
@@ -63,13 +72,15 @@ const connectWriter = (): Promise<DbConnection> => {
 export const createJobRow = async (
   jobId: string,
   prompt: string,
-  requestedAgent?: string
+  requestedAgent?: string,
+  roomId?: bigint
 ): Promise<void> => {
   const conn = await connectWriter();
   await conn.reducers.createJob({
     jobId,
     prompt,
     requestedAgent,
+    roomId,
   });
 };
 
@@ -114,9 +125,6 @@ export const updateStepRow = async (
   await conn.reducers.updateStep({ output, status, stepId });
 };
 
-const toIso = (micros: bigint): string =>
-  new Date(Number(micros / 1000n)).toISOString();
-
 const toStepJson = (row: AgentStep): StepJson => ({
   agent: row.agent,
   created_at: toIso(row.createdAt.microsSinceUnixEpoch),
@@ -135,6 +143,8 @@ const toJobJson = (row: AgentJob, steps: AgentStep[]): JobJson => ({
   job_id: row.jobId,
   prompt: row.prompt,
   requested_agent: row.requestedAgent ?? null,
+  room_id:
+    row.roomId === null || row.roomId === undefined ? null : String(row.roomId),
   selected_agents: row.selectedAgents ?? null,
   status: row.status,
   steps: steps.toSorted((a, b) => a.stepOrder - b.stepOrder).map(toStepJson),
@@ -193,6 +203,69 @@ export const getJob = (jobId: string): Promise<JobJson | null> =>
               `SELECT * FROM agent_job WHERE job_id = '${id}'`,
               `SELECT * FROM agent_step WHERE job_id = '${id}'`,
             ]);
+        })
+        .onConnectError((_ctx, error) => {
+          finish(() => reject(error));
+        })
+        .build();
+    } catch (error) {
+      finish(() => reject(error as Error));
+    }
+  });
+
+/**
+ * Fetch a room's memory config (backend + namespace). Returns null when the
+ * room does not exist. Used by the pipeline to resolve Honcho context for a
+ * room-scoped job.
+ */
+export const getRoomMemoryConfig = (
+  roomId: bigint
+): Promise<RoomMemoryConfig | null> =>
+  new Promise((resolve, reject) => {
+    let conn: DbConnection | null = null;
+    const timeoutId = setTimeout(() => {
+      try {
+        conn?.disconnect();
+      } catch {
+        // disconnect is best-effort on timeout
+      }
+      reject(new Error("SpacetimeDB query timeout"));
+    }, 15_000);
+    const finish = (fn: () => void): void => {
+      clearTimeout(timeoutId);
+      try {
+        conn?.disconnect();
+      } catch {
+        // disconnect is best-effort after reads complete
+      }
+      fn();
+    };
+    try {
+      conn = DbConnection.builder()
+        .withUri(config.spacetimedbHost)
+        .withDatabaseName(config.spacetimedbDb)
+        .withToken(config.spacetimedbToken || undefined)
+        .onConnect((c) => {
+          c.subscriptionBuilder()
+            .onApplied(() => {
+              const room = c.db.room.roomId.find(roomId) ?? null;
+              finish(() =>
+                resolve(
+                  room
+                    ? {
+                        backend: room.memoryBackend,
+                        namespace: room.memoryNamespace,
+                      }
+                    : null
+                )
+              );
+            })
+            .onError((ctx) => {
+              finish(() =>
+                reject(ctx.event ?? new Error("Subscription error"))
+              );
+            })
+            .subscribe([`SELECT * FROM room WHERE room_id = ${roomId}`]);
         })
         .onConnectError((_ctx, error) => {
           finish(() => reject(error));

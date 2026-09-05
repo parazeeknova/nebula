@@ -1,5 +1,5 @@
 import { chatJson } from "../llm";
-import { buildOrchestratorSystem } from "./prompts";
+import { buildOrchestratorSystem, memoryBlock } from "./prompts";
 import { AGENT_NAMES, isAgentName } from "./registry";
 import type { AgentName } from "./registry";
 import type { PlannedTask, RouteName, RoutingDecision } from "./types";
@@ -109,15 +109,19 @@ export const validateRouting = (
   };
 };
 
-export const planRouting = async (prompt: string): Promise<RoutingDecision> => {
+export const planRouting = async (
+  prompt: string,
+  memory?: string
+): Promise<RoutingDecision> => {
   const system = buildOrchestratorSystem();
+  const userPrompt = `${prompt}${memoryBlock(memory)}`;
   try {
-    return validateRouting(await chatJson<unknown>(system, prompt), prompt);
+    return validateRouting(await chatJson<unknown>(system, userPrompt), prompt);
   } catch (firstError) {
     const firstMessage =
       firstError instanceof Error ? firstError.message : String(firstError);
     const retryPrompt =
-      `${prompt}\n\nYour previous routing output was invalid (${firstMessage}). ` +
+      `${userPrompt}\n\nYour previous routing output was invalid (${firstMessage}). ` +
       "Return ONLY a valid routing JSON object.";
     try {
       return validateRouting(

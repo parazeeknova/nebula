@@ -201,8 +201,8 @@ export const useCreateRoom = (): ((
           await createRoom({
             canvasX: 0,
             canvasY: 0,
-            memoryBackend: "hindsight",
-            memoryNamespace: `room-${Date.now()}`,
+            memoryBackend: "honcho",
+            memoryNamespace: `room-${crypto.randomUUID()}`,
             name,
             topic: "",
             workspaceId,

@@ -1,5 +1,5 @@
 import { chatJson } from "../llm";
-import { evaluationSystem } from "./prompts";
+import { evaluationSystem, memoryBlock } from "./prompts";
 import type {
   EvaluationOutput,
   MarketAnalysisOutput,
@@ -11,11 +11,16 @@ export const runEvaluation = (
   task: string,
   context?: TaskContext,
   research?: WebResearchOutput,
-  market?: MarketAnalysisOutput
+  market?: MarketAnalysisOutput,
+  memory?: string
 ): Promise<EvaluationOutput> => {
   const parts = [`Objective: ${task}`];
   if (context?.industry) {
     parts.push(`Stated industry/domain: ${context.industry}`);
+  }
+  const mem = memoryBlock(memory);
+  if (mem) {
+    parts.push(mem.trim());
   }
   parts.push(
     `Supporting context: ${JSON.stringify({

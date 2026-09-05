@@ -6,6 +6,9 @@ export const config = {
   generalComputeApiKey: process.env.GENERALCOMPUTE_API_KEY ?? "",
   generalComputeBaseUrl:
     process.env.GENERALCOMPUTE_BASE_URL ?? "https://api.generalcompute.com/v1",
+  honchoApiKey: process.env.HONCHO_API_KEY ?? "",
+  honchoBaseUrl: process.env.HONCHO_BASE_URL ?? "https://api.honcho.dev",
+  honchoWorkspaceId: process.env.HONCHO_WORKSPACE_ID ?? "nebula",
   llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS ?? 120_000),
   model: process.env.GENERALCOMPUTE_MODEL ?? "gpt-oss-120b",
   port: Number(process.env.PORT ?? 3002),

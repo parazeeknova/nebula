@@ -267,6 +267,9 @@ const tablesSchema = __schema({
         'roomId',
         'identity',
       ] },
+      { accessor: 'by_room_only', name: 'room_human_room_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
     ],
     constraints: [
     ],

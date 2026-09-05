@@ -14,4 +14,5 @@ export default {
   jobId: __t.string(),
   prompt: __t.string(),
   requestedAgent: __t.option(__t.string()),
+  roomId: __t.option(__t.u64()),
 };

@@ -33,6 +33,7 @@ export const AgentJob = __t.object("AgentJob", {
   jobId: __t.string(),
   prompt: __t.string(),
   requestedAgent: __t.option(__t.string()),
+  roomId: __t.option(__t.u64()),
   selectedAgents: __t.option(__t.string()),
   status: __t.string(),
   updatedAt: __t.timestamp(),

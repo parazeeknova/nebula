@@ -15,6 +15,12 @@ import type {
 } from "./agents/types";
 import { runWebResearch } from "./agents/web-research";
 import { config } from "./config";
+import {
+  agentPeerId,
+  humanPeerId,
+  pullRoomMemory,
+  recordMessages,
+} from "./honcho";
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -121,19 +127,26 @@ const newestRunningTool = (
 const runAgentFor = (
   agent: AgentName,
   task: string,
-  results: AgentResults
+  results: AgentResults,
+  memory?: string
 ): Promise<AgentOutput> => {
   if (agent === "web") {
-    return runWebResearch(task);
+    return runWebResearch(task, undefined, memory);
   }
   if (agent === "market") {
-    return runMarketAnalysis(task, undefined, results.web_result ?? undefined);
+    return runMarketAnalysis(
+      task,
+      undefined,
+      results.web_result ?? undefined,
+      memory
+    );
   }
   return runEvaluation(
     task,
     undefined,
     results.web_result ?? undefined,
-    results.market_result ?? undefined
+    results.market_result ?? undefined,
+    memory
   );
 };
 
@@ -159,7 +172,8 @@ const runAgentWithTool = async (
   jobId: bigint,
   agent: AgentName,
   task: string,
-  results: AgentResults
+  results: AgentResults,
+  memory?: string
 ): Promise<AgentResults> => {
   const tool = TOOL_BY_AGENT[agent];
   await conn.reducers.logToolCall({
@@ -173,7 +187,7 @@ const runAgentWithTool = async (
     payload: tool,
   });
   try {
-    const outcome = await runAgentFor(agent, task, results);
+    const outcome = await runAgentFor(agent, task, results, memory);
     const next = resultsWith(results, agent, outcome);
     const call = newestRunningTool(conn, jobId);
     if (call !== null) {
@@ -208,7 +222,8 @@ const produceAnswer = async (
   messageId: bigint,
   jobId: bigint,
   prompt: string,
-  route: AgentRoute
+  route: AgentRoute,
+  memory?: string
 ): Promise<string> => {
   const results: AgentResults = {
     evaluation_result: null,
@@ -220,7 +235,7 @@ const produceAnswer = async (
   if (route === "web" || route === "market" || route === "evaluation") {
     agents = [route];
   } else {
-    const routing = await planRouting(prompt);
+    const routing = await planRouting(prompt, memory);
     if (routing.agents.length === 0) {
       return routing.answer ?? "";
     }
@@ -244,14 +259,15 @@ const produceAnswer = async (
       jobId,
       agent,
       task,
-      results2
+      results2,
+      memory
     );
     results2.web_result = next.web_result;
     results2.market_result = next.market_result;
     results2.evaluation_result = next.evaluation_result;
   }
 
-  const final = await synthesize(prompt, results2);
+  const final = await synthesize(prompt, results2, memory);
   return final.answer;
 };
 
@@ -277,6 +293,97 @@ const streamAnswer = async (
   }
 };
 
+const roomRow = (conn: DbConnection, roomId: bigint) => {
+  for (const r of conn.db.room.iter()) {
+    if (r.roomId === roomId) {
+      return r;
+    }
+  }
+  return null;
+};
+
+/**
+ * Load room memory for a job. Records the room's existing non-empty messages
+ * into the Honcho session (idempotent) then pulls the LLM context. Returns ""
+ * when the room isn't Honcho-backed or the pull fails.
+ */
+const loadMemoryFor = async (
+  conn: DbConnection,
+  job: AiJob,
+  assistantAgentId: bigint
+): Promise<string> => {
+  try {
+    const room = roomRow(conn, job.roomId);
+    if (room === null || room.memoryBackend !== "honcho") {
+      return "";
+    }
+    const messages = [...conn.db.message.iter()].filter(
+      (m) => m.roomId === job.roomId && !m.streaming && m.body.trim().length > 0
+    );
+    await recordMessages(
+      room.memoryNamespace,
+      messages.map((m) => ({
+        body: m.body,
+        messageId: m.messageId,
+        peerId:
+          m.authorAgent === null || m.authorAgent === undefined
+            ? humanPeerId(m.author.toHexString())
+            : agentPeerId(m.authorAgent),
+      }))
+    );
+    const mem = await pullRoomMemory(room.memoryNamespace, {
+      assistantPeer: agentPeerId(assistantAgentId),
+      prompt: job.prompt,
+      targetPeer: humanPeerId(job.createdBy.toHexString()),
+    });
+    return mem.context;
+  } catch (error) {
+    log(`failed to load room memory for job ${job.jobId}: ${errMsg(error)}`);
+    return "";
+  }
+};
+
+/**
+ * Write the completed answer into Honcho (keyed by the reply message id so it
+ * dedups across reloads) and cache a short summary locally via push_room_memory.
+ */
+const writeMemoryFor = async (
+  conn: DbConnection,
+  job: AiJob,
+  assistantAgentId: bigint,
+  messageId: bigint,
+  answer: string
+): Promise<void> => {
+  try {
+    const room = roomRow(conn, job.roomId);
+    if (room === null || room.memoryBackend !== "honcho") {
+      return;
+    }
+    const body = answer.trim();
+    if (body.length === 0) {
+      return;
+    }
+    await recordMessages(room.memoryNamespace, [
+      {
+        body,
+        messageId,
+        peerId: agentPeerId(assistantAgentId),
+      },
+    ]);
+    const summary = body.slice(0, 800);
+    await conn.reducers.pushRoomMemory({
+      embeddingRef: undefined,
+      roomId: job.roomId,
+      summary,
+      threadId: job.threadId,
+      weight: 1,
+    });
+    log(`job ${job.jobId} wrote room memory`);
+  } catch (error) {
+    log(`failed to write room memory for job ${job.jobId}: ${errMsg(error)}`);
+  }
+};
+
 const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
   log(`claiming job ${job.jobId}: "${job.prompt.slice(0, 80)}"`);
   let messageId: bigint | null = null;
@@ -294,6 +401,7 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
       throw new Error("job has no tagged agent");
     }
     let handle = "";
+    const assistantAgentId = tagged;
     for (const a of conn.db.agent.iter()) {
       if (a.agentId === tagged) {
         handle = (a.name.split(" ")[0] ?? "").toLowerCase();
@@ -304,6 +412,8 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
     }
     const route = HANDLE_TO_AGENT[handle];
     log(`job ${job.jobId} -> @${handle} (${route})`);
+
+    const memory = await loadMemoryFor(conn, job, assistantAgentId);
 
     await conn.reducers.signalEvent({
       kind: "thinking",
@@ -316,7 +426,8 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
       messageId,
       job.jobId,
       job.prompt,
-      route
+      route,
+      memory
     );
     await streamAnswer(conn, messageId, answer);
     await conn.reducers.completeJob({
@@ -324,6 +435,7 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
       jobId: job.jobId,
       messageId,
     });
+    await writeMemoryFor(conn, job, assistantAgentId, messageId, answer);
     log(`job ${job.jobId} completed (${answer.length} chars)`);
   } catch (error) {
     const text = errMsg(error);
@@ -356,6 +468,9 @@ const main = async (): Promise<void> => {
     "SELECT * FROM ai_job",
     "SELECT * FROM agent",
     "SELECT * FROM message",
+    "SELECT * FROM room",
+    "SELECT * FROM room_memory_entry",
+    "SELECT * FROM thread",
     "SELECT * FROM tool_call",
   ]);
   log("subscriptions live; polling for queued jobs");
