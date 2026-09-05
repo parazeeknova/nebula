@@ -11,9 +11,9 @@ import {
 } from "spacetimedb";
 
 export default {
-  roomId: __t.u64(),
-  title: __t.string(),
-  prompt: __t.string(),
-  taggedAgent: __t.option(__t.u64()),
   angle: __t.string(),
+  prompt: __t.string(),
+  roomId: __t.u64(),
+  taggedAgent: __t.option(__t.u64()),
+  title: __t.string(),
 };

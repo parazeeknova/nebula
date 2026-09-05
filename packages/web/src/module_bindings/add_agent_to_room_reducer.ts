@@ -11,6 +11,6 @@ import {
 } from "spacetimedb";
 
 export default {
-  roomId: __t.u64(),
   agentId: __t.u64(),
+  roomId: __t.u64(),
 };

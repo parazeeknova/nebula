@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
-  threadId: __t.u64(),
   body: __t.string(),
   mentions: __t.array(__t.u64()),
+  threadId: __t.u64(),
 };

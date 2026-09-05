@@ -384,6 +384,23 @@ export const onDisconnect = spacetimedb.clientDisconnected((ctx) => {
   }
 });
 
+export const update_display_name = spacetimedb.reducer(
+  { display_name: t.string() },
+  (ctx, { display_name }) => {
+    const name = assertNonEmpty(display_name, "display_name").slice(0, 48);
+    const existing = ctx.db.app_user.identity.find(ctx.sender);
+    if (existing) {
+      ctx.db.app_user.identity.update({ ...existing, display_name: name });
+    } else {
+      ctx.db.app_user.insert({
+        created_at: ctx.timestamp,
+        display_name: name,
+        identity: ctx.sender,
+      });
+    }
+  }
+);
+
 // ── workspace / rooms ──
 
 export const create_workspace = spacetimedb.reducer(

@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
-  messageId: __t.u64(),
   kind: __t.string(),
+  messageId: __t.u64(),
   payload: __t.string(),
 };

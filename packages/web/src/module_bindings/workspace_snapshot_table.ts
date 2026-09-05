@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
+  generatedAt: __t.timestamp().name("generated_at"),
+  payload: __t.string(),
   snapshotId: __t.u64().primaryKey().name("snapshot_id"),
   workspaceId: __t.u64().name("workspace_id"),
-  payload: __t.string(),
-  generatedAt: __t.timestamp().name("generated_at"),
 });

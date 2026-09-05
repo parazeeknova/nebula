@@ -11,9 +11,9 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  sessionId: __t.u64().primaryKey().name("session_id"),
-  roomId: __t.u64().name("room_id"),
-  status: __t.u8(),
-  finalMessageId: __t.option(__t.u64()).name("final_message_id"),
   createdAt: __t.timestamp().name("created_at"),
+  finalMessageId: __t.option(__t.u64()).name("final_message_id"),
+  roomId: __t.u64().name("room_id"),
+  sessionId: __t.u64().primaryKey().name("session_id"),
+  status: __t.u8(),
 });

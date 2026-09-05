@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
+  error: __t.string(),
   jobId: __t.u64(),
   messageId: __t.u64(),
-  error: __t.string(),
 };

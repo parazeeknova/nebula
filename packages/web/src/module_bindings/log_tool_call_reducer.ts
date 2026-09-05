@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
+  input: __t.string(),
   jobId: __t.u64(),
   tool: __t.string(),
-  input: __t.string(),
 };

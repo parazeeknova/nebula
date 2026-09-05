@@ -11,7 +11,7 @@
     "build": "lerna run build --stream",
     "start": "lerna run start --scope @nebula/web --stream",
     "generate": "lerna run generate --scope @nebula/web --stream",
-    "check": "ultracite fix",
+    "check": "oxfmt --write && oxlint --fix-dangerously",
     "check-types": "lerna run typecheck --stream",
     "prepare": "lefthook install",
     "spacetime:publish:local": "bun --filter @nebula/spacetimedb run publish:local",

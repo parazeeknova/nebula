@@ -11,13 +11,13 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  jobId: __t.u64().primaryKey().name("job_id"),
-  threadId: __t.u64().name("thread_id"),
-  roomId: __t.u64().name("room_id"),
-  prompt: __t.string(),
-  taggedAgent: __t.option(__t.u64()).name("tagged_agent"),
   angle: __t.string(),
-  status: __t.u8(),
-  createdBy: __t.identity().name("created_by"),
   createdAt: __t.timestamp().name("created_at"),
+  createdBy: __t.identity().name("created_by"),
+  jobId: __t.u64().primaryKey().name("job_id"),
+  prompt: __t.string(),
+  roomId: __t.u64().name("room_id"),
+  status: __t.u8(),
+  taggedAgent: __t.option(__t.u64()).name("tagged_agent"),
+  threadId: __t.u64().name("thread_id"),
 });

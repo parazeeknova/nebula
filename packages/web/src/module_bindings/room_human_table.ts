@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  roomId: __t.u64().name("room_id"),
   identity: __t.identity(),
   joinedAt: __t.timestamp().name("joined_at"),
+  roomId: __t.u64().name("room_id"),
 });

@@ -12,7 +12,7 @@ import {
 
 export default {
   agentId: __t.u64(),
+  modelName: __t.string(),
   systemPrompt: __t.string(),
   tools: __t.array(__t.string()),
-  modelName: __t.string(),
 };

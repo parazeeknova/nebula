@@ -606,3 +606,78 @@ export const useMyIdentity = (): { hex: string; identity: Identity | null } => {
     [identity]
   );
 };
+
+/** The caller's own profile row: live display name + rename. */
+export const useMyProfile = (): {
+  displayName: string;
+  online: boolean;
+  rename: (name: string) => void;
+} => {
+  const { identity, isActive } = useSpacetimeDB();
+  const [users] = useTable(tables.app_user);
+  const updateDisplayName = useReducer(reducers.updateDisplayName);
+
+  const me = useMemo(() => {
+    if (!identity) {
+      return;
+    }
+    const hex = hexOf(identity);
+    return users.find((u) => hexOf(u.identity) === hex);
+  }, [users, identity]);
+
+  const rename = useCallback(
+    (name: string) => {
+      const clean = name.trim().slice(0, 48);
+      if (!clean) {
+        return;
+      }
+      const run = async (): Promise<void> => {
+        try {
+          await updateDisplayName({ displayName: clean });
+        } catch (error) {
+          console.error("update_display_name failed", error);
+        }
+      };
+      void run();
+    },
+    [updateDisplayName]
+  );
+
+  return {
+    displayName:
+      me?.displayName ?? (identity ? `${hexOf(identity).slice(0, 8)}…` : "…"),
+    online: isActive,
+    rename,
+  };
+};
+
+export interface MemoryFact {
+  roomId: bigint;
+  roomName: string;
+  summary: string;
+}
+
+/** Workspace-wide compounding memory: live count + latest facts. */
+export const useWorkspaceMemory = (): {
+  count: number;
+  facts: MemoryFact[];
+} => {
+  const [entries] = useTable(tables.room_memory_entry);
+  const [rooms] = useTable(tables.room);
+
+  return useMemo(() => {
+    const names = new Map<string, string>();
+    for (const r of rooms) {
+      names.set(String(r.roomId), r.name);
+    }
+    const facts = entries
+      .toSorted(byCreatedDesc)
+      .slice(0, 8)
+      .map((e) => ({
+        roomId: e.roomId,
+        roomName: names.get(String(e.roomId)) ?? "archived room",
+        summary: e.summary,
+      }));
+    return { count: entries.length, facts };
+  }, [entries, rooms]);
+};

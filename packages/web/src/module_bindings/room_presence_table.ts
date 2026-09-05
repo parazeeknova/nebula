@@ -12,6 +12,6 @@ import {
 
 export default __t.row({
   identity: __t.identity().primaryKey(),
-  roomId: __t.u64().name("room_id"),
   lastSeen: __t.timestamp().name("last_seen"),
+  roomId: __t.u64().name("room_id"),
 });

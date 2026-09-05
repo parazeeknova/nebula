@@ -11,9 +11,9 @@ import {
 } from "spacetimedb";
 
 export default {
-  roomId: __t.u64(),
-  threadId: __t.u64(),
-  summary: __t.string(),
   embeddingRef: __t.option(__t.string()),
+  roomId: __t.u64(),
+  summary: __t.string(),
+  threadId: __t.u64(),
   weight: __t.f32(),
 };

@@ -11,11 +11,11 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
+  createdAt: __t.timestamp().name("created_at"),
+  embeddingRef: __t.option(__t.string()).name("embedding_ref"),
   memoryId: __t.u64().primaryKey().name("memory_id"),
   roomId: __t.u64().name("room_id"),
-  threadId: __t.u64().name("thread_id"),
   summary: __t.string(),
-  embeddingRef: __t.option(__t.string()).name("embedding_ref"),
+  threadId: __t.u64().name("thread_id"),
   weight: __t.f32(),
-  createdAt: __t.timestamp().name("created_at"),
 });

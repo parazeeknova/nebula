@@ -11,14 +11,14 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  messageId: __t.u64().primaryKey().name("message_id"),
-  threadId: __t.u64().name("thread_id"),
-  roomId: __t.u64().name("room_id"),
   author: __t.identity(),
   authorAgent: __t.option(__t.u64()).name("author_agent"),
   body: __t.string(),
-  role: __t.u8(),
-  streaming: __t.bool(),
-  mentions: __t.array(__t.u64()),
   createdAt: __t.timestamp().name("created_at"),
+  mentions: __t.array(__t.u64()),
+  messageId: __t.u64().primaryKey().name("message_id"),
+  role: __t.u8(),
+  roomId: __t.u64().name("room_id"),
+  streaming: __t.bool(),
+  threadId: __t.u64().name("thread_id"),
 });

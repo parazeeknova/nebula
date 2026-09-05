@@ -11,11 +11,11 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  threadId: __t.u64().primaryKey().name("thread_id"),
-  roomId: __t.u64().name("room_id"),
-  title: __t.string(),
-  createdBy: __t.identity().name("created_by"),
-  status: __t.u8(),
-  mergeSessionId: __t.option(__t.u64()).name("merge_session_id"),
   createdAt: __t.timestamp().name("created_at"),
+  createdBy: __t.identity().name("created_by"),
+  mergeSessionId: __t.option(__t.u64()).name("merge_session_id"),
+  roomId: __t.u64().name("room_id"),
+  status: __t.u8(),
+  threadId: __t.u64().primaryKey().name("thread_id"),
+  title: __t.string(),
 });

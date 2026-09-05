@@ -12,10 +12,10 @@ import {
 
 export default __t.row({
   callId: __t.u64().primaryKey().name("call_id"),
-  jobId: __t.u64().name("job_id"),
-  tool: __t.string(),
+  createdAt: __t.timestamp().name("created_at"),
   input: __t.string(),
+  jobId: __t.u64().name("job_id"),
   output: __t.option(__t.string()),
   status: __t.u8(),
-  createdAt: __t.timestamp().name("created_at"),
+  tool: __t.string(),
 });

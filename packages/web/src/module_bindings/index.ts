@@ -62,6 +62,7 @@ import ResolveToolCallReducer from "./resolve_tool_call_reducer";
 import SignalEventReducer from "./signal_event_reducer";
 import StartThreadReducer from "./start_thread_reducer";
 import UpdateAgentReducer from "./update_agent_reducer";
+import UpdateDisplayNameReducer from "./update_display_name_reducer";
 import UpdateExplorationReducer from "./update_exploration_reducer";
 
 // Import all procedure arg schemas
@@ -367,6 +368,7 @@ const reducersSchema = __reducers(
   __reducerSchema("signal_event", SignalEventReducer),
   __reducerSchema("start_thread", StartThreadReducer),
   __reducerSchema("update_agent", UpdateAgentReducer),
+  __reducerSchema("update_display_name", UpdateDisplayNameReducer),
   __reducerSchema("update_exploration", UpdateExplorationReducer),
 );
 

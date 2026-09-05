@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+
+import type { MemoryFact } from "@/lib/live";
 import type { Room } from "@/lib/room-types";
 
 import {
@@ -17,8 +20,12 @@ interface Props {
   openRoomIds: bigint[];
   collapsed: boolean;
   onlineCounts: Record<string, number>;
+  me: { displayName: string; online: boolean };
+  memoryCount: number;
+  memoryFacts: MemoryFact[];
   onSelect: (roomId: bigint) => void;
   onCreateRoom: () => void;
+  onRenameMe: (name: string) => void;
   onToggleCollapse: () => void;
   onCloseMobile?: () => void;
 }
@@ -38,11 +45,32 @@ export const Sidebar = ({
   activeRoomId,
   collapsed,
   onlineCounts,
+  me,
+  memoryCount,
+  memoryFacts,
   onSelect,
   onCreateRoom,
+  onRenameMe,
   onToggleCollapse,
 }: Props) => {
   const width = collapsed ? "w-[68px]" : "w-60";
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState("");
+
+  const initials = me.displayName
+    .split(" ")
+    .filter((w) => w.length > 0)
+    .slice(0, 2)
+    .map((w) => w.slice(0, 1).toUpperCase())
+    .join("");
+
+  const saveName = () => {
+    setEditingName(false);
+    if (draftName.trim() && draftName.trim() !== me.displayName) {
+      onRenameMe(draftName);
+    }
+  };
 
   return (
     <aside
@@ -150,13 +178,42 @@ export const Sidebar = ({
                 </button>
               </li>
               <li>
-                <button className="text-ink-dim hover:text-ink flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[14px] font-medium transition hover:bg-white/[0.04]">
+                <button
+                  onClick={() => setMemoryOpen((v) => !v)}
+                  aria-expanded={memoryOpen}
+                  aria-label="Toggle workspace memory"
+                  className="text-ink-dim hover:text-ink flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[14px] font-medium transition hover:bg-white/[0.04]"
+                >
                   <DbIcon className="text-ink-ghost h-[18px] w-[18px]" />
                   <span className="flex-1 truncate">Memory</span>
-                  <span className="text-ink-faint rounded bg-white/5 px-1.5 py-px font-mono text-[10px]">
-                    soon
+                  <span className="rounded bg-white/5 px-1.5 py-px font-mono text-[10px] text-[#8b9bff]">
+                    {memoryCount}
                   </span>
                 </button>
+                {memoryOpen && (
+                  <ul className="mt-1 mb-1 ml-7 flex flex-col gap-1.5 border-l border-white/10 pl-3">
+                    {memoryFacts.length === 0 ? (
+                      <li className="text-ink-faint py-1 text-[11px]">
+                        No facts yet — they compound here as rooms conclude
+                        threads.
+                      </li>
+                    ) : (
+                      memoryFacts.map((fact) => (
+                        <li
+                          key={`${String(fact.roomId)}-${fact.summary.slice(0, 32)}`}
+                          className="min-w-0"
+                        >
+                          <p className="truncate font-mono text-[10px] text-[#8b9bff]">
+                            {fact.roomName}
+                          </p>
+                          <p className="text-ink-faint line-clamp-2 text-[11px] leading-relaxed">
+                            {fact.summary}
+                          </p>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
               </li>
             </ul>
           </>
@@ -167,11 +224,15 @@ export const Sidebar = ({
       <div className="bg-panel-2 shrink-0 border-t border-white/[0.06] px-2 py-2">
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 py-1 max-md:hidden">
-            <span className="relative">
+            <span className="relative" title={me.displayName}>
               <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#5865f2] to-[#00a8fc] text-xs font-extrabold text-white">
-                AC
+                {initials}
               </span>
-              <span className="border-panel-2 bg-mint absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-[2.5px]" />
+              <span
+                className={`border-panel-2 absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-[2.5px] ${
+                  me.online ? "bg-mint" : "bg-ink-ghost"
+                }`}
+              />
             </span>
             <button
               onClick={onToggleCollapse}
@@ -186,16 +247,46 @@ export const Sidebar = ({
           <div className="flex items-center gap-2 rounded-md px-1.5 py-1.5">
             <span className="relative shrink-0">
               <span className="grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-[#5865f2] to-[#00a8fc] text-xs font-extrabold text-white">
-                AC
+                {initials}
               </span>
-              <span className="border-panel-2 bg-mint absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-[2.5px]" />
+              <span
+                className={`border-panel-2 absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-[2.5px] ${
+                  me.online ? "bg-mint" : "bg-ink-ghost"
+                }`}
+              />
             </span>
             <span className="min-w-0 flex-1 leading-tight">
-              <span className="font-display text-ink block truncate text-[13px] font-semibold">
-                Ava Chen
-              </span>
+              {editingName ? (
+                <input
+                  autoFocus
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  onBlur={saveName}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      saveName();
+                    }
+                    if (e.key === "Escape") {
+                      setEditingName(false);
+                    }
+                  }}
+                  aria-label="Display name"
+                  className="font-display text-ink ring-blurple/60 w-full rounded bg-black/60 px-1 text-[13px] font-semibold ring-1 outline-none"
+                />
+              ) : (
+                <button
+                  onClick={() => {
+                    setDraftName(me.displayName);
+                    setEditingName(true);
+                  }}
+                  title="Click to rename"
+                  className="font-display text-ink block w-full truncate text-left text-[13px] font-semibold hover:underline"
+                >
+                  {me.displayName}
+                </button>
+              )}
               <span className="text-ink-faint block truncate text-[11px]">
-                online · growth
+                {me.online ? "online" : "connecting…"}
               </span>
             </span>
             <button

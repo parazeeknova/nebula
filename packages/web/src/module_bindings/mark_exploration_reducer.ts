@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default {
-  sessionId: __t.u64(),
-  jobId: __t.u64(),
   angle: __t.string(),
+  jobId: __t.u64(),
   messageId: __t.u64(),
+  sessionId: __t.u64(),
 };

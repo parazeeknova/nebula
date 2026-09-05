@@ -34,6 +34,7 @@ import ResolveToolCallReducer from "../resolve_tool_call_reducer";
 import SignalEventReducer from "../signal_event_reducer";
 import StartThreadReducer from "../start_thread_reducer";
 import UpdateAgentReducer from "../update_agent_reducer";
+import UpdateDisplayNameReducer from "../update_display_name_reducer";
 import UpdateExplorationReducer from "../update_exploration_reducer";
 
 export type AddAgentToRoomParams = __Infer<typeof AddAgentToRoomReducer>;
@@ -64,5 +65,6 @@ export type ResolveToolCallParams = __Infer<typeof ResolveToolCallReducer>;
 export type SignalEventParams = __Infer<typeof SignalEventReducer>;
 export type StartThreadParams = __Infer<typeof StartThreadReducer>;
 export type UpdateAgentParams = __Infer<typeof UpdateAgentReducer>;
+export type UpdateDisplayNameParams = __Infer<typeof UpdateDisplayNameReducer>;
 export type UpdateExplorationParams = __Infer<typeof UpdateExplorationReducer>;
 

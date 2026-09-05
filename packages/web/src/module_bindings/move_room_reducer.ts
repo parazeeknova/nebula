@@ -11,7 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
-  roomId: __t.u64(),
   canvasX: __t.i32(),
   canvasY: __t.i32(),
+  roomId: __t.u64(),
 };

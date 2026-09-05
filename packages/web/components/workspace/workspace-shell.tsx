@@ -6,8 +6,10 @@ import { useSpacetimeDB } from "spacetimedb/react";
 import {
   useCreateRoom,
   useLiveRooms,
+  useMyProfile,
   usePresenceCounts,
   useWorkspace,
+  useWorkspaceMemory,
 } from "@/lib/live";
 
 import { RoomView } from "../room/room-view";
@@ -42,6 +44,8 @@ export const WorkspaceShell = () => {
   const { rooms, ready: roomsReady } = useLiveRooms();
   const onlineCounts = usePresenceCounts();
   const createRoom = useCreateRoom();
+  const me = useMyProfile();
+  const memory = useWorkspaceMemory();
   const ready = connected && wsReady && roomsReady;
 
   const [openRoomIds, setOpenRoomIds] = useState<bigint[]>([]);
@@ -145,8 +149,12 @@ export const WorkspaceShell = () => {
             openRoomIds={openRoomIds}
             collapsed={collapsed}
             onlineCounts={onlineCounts}
+            me={me}
+            memoryCount={memory.count}
+            memoryFacts={memory.facts}
             onSelect={select}
             onCreateRoom={handleCreate}
+            onRenameMe={me.rename}
             onToggleCollapse={() => setCollapsed((c) => !c)}
           />
         </div>
@@ -164,8 +172,12 @@ export const WorkspaceShell = () => {
               openRoomIds={openRoomIds}
               collapsed={false}
               onlineCounts={onlineCounts}
+              me={me}
+              memoryCount={memory.count}
+              memoryFacts={memory.facts}
               onSelect={select}
               onCreateRoom={handleCreate}
+              onRenameMe={me.rename}
               onToggleCollapse={() => setCollapsed((c) => !c)}
               onCloseMobile={() => setMobileNav(false)}
             />

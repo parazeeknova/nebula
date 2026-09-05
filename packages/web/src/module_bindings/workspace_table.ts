@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  workspaceId: __t.u64().primaryKey().name("workspace_id"),
-  name: __t.string(),
-  createdBy: __t.identity().name("created_by"),
   createdAt: __t.timestamp().name("created_at"),
+  createdBy: __t.identity().name("created_by"),
+  name: __t.string(),
+  workspaceId: __t.u64().primaryKey().name("workspace_id"),
 });

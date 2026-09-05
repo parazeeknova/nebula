@@ -11,15 +11,15 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  roomId: __t.u64().primaryKey().name("room_id"),
-  workspaceId: __t.u64().name("workspace_id"),
-  name: __t.string(),
-  topic: __t.string(),
   canvasX: __t.i32().name("canvas_x"),
   canvasY: __t.i32().name("canvas_y"),
+  createdAt: __t.timestamp().name("created_at"),
+  createdBy: __t.identity().name("created_by"),
   memoryBackend: __t.string().name("memory_backend"),
   memoryNamespace: __t.string().name("memory_namespace"),
+  name: __t.string(),
+  roomId: __t.u64().primaryKey().name("room_id"),
   status: __t.u8(),
-  createdBy: __t.identity().name("created_by"),
-  createdAt: __t.timestamp().name("created_at"),
+  topic: __t.string(),
+  workspaceId: __t.u64().name("workspace_id"),
 });

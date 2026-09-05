@@ -11,10 +11,10 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  explorationId: __t.u64().primaryKey().name("exploration_id"),
-  sessionId: __t.u64().name("session_id"),
-  jobId: __t.u64().name("job_id"),
   angle: __t.string(),
-  status: __t.u8(),
+  explorationId: __t.u64().primaryKey().name("exploration_id"),
+  jobId: __t.u64().name("job_id"),
   messageId: __t.u64().name("message_id"),
+  sessionId: __t.u64().name("session_id"),
+  status: __t.u8(),
 });

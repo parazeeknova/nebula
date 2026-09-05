@@ -11,11 +11,11 @@ import {
 } from "spacetimedb";
 
 export default {
-  workspaceId: __t.u64(),
-  name: __t.string(),
-  topic: __t.string(),
   canvasX: __t.i32(),
   canvasY: __t.i32(),
   memoryBackend: __t.string(),
   memoryNamespace: __t.string(),
+  name: __t.string(),
+  topic: __t.string(),
+  workspaceId: __t.u64(),
 };

@@ -11,10 +11,10 @@ import {
 } from "spacetimedb";
 
 export default {
-  workspaceId: __t.u64(),
+  modelName: __t.string(),
+  modelProvider: __t.string(),
   name: __t.string(),
   systemPrompt: __t.string(),
   tools: __t.array(__t.string()),
-  modelProvider: __t.string(),
-  modelName: __t.string(),
+  workspaceId: __t.u64(),
 };

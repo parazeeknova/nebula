@@ -12,12 +12,12 @@ import {
 
 export default __t.row({
   agentId: __t.u64().primaryKey().name("agent_id"),
-  workspaceId: __t.u64().name("workspace_id"),
+  createdAt: __t.timestamp().name("created_at"),
+  createdBy: __t.identity().name("created_by"),
+  modelName: __t.string().name("model_name"),
+  modelProvider: __t.string().name("model_provider"),
   name: __t.string(),
   systemPrompt: __t.string().name("system_prompt"),
   tools: __t.array(__t.string()),
-  modelProvider: __t.string().name("model_provider"),
-  modelName: __t.string().name("model_name"),
-  createdBy: __t.identity().name("created_by"),
-  createdAt: __t.timestamp().name("created_at"),
+  workspaceId: __t.u64().name("workspace_id"),
 });

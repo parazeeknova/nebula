@@ -12,8 +12,8 @@ import {
 
 export default __t.row({
   chunkId: __t.u64().primaryKey().name("chunk_id"),
-  messageId: __t.u64().name("message_id"),
-  idx: __t.u32(),
-  delta: __t.string(),
   createdAt: __t.timestamp().name("created_at"),
+  delta: __t.string(),
+  idx: __t.u32(),
+  messageId: __t.u64().name("message_id"),
 });

@@ -11,8 +11,8 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  messageId: __t.u64().name("message_id"),
-  kind: __t.string(),
-  payload: __t.string(),
   createdAt: __t.timestamp().name("created_at"),
+  kind: __t.string(),
+  messageId: __t.u64().name("message_id"),
+  payload: __t.string(),
 });
