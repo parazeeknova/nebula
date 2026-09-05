@@ -39,6 +39,20 @@ const formatRef = (ref: string): { label: string; provider?: string } => {
   return { label: ref };
 };
 
+const getModelOptionClassName = (
+  isHighlighted: boolean,
+  isSelected: boolean
+): string => {
+  if (isHighlighted) {
+    return isSelected
+      ? "bg-blurple/25 text-ink ring-1 ring-blurple/50"
+      : "bg-white/[0.08] text-ink ring-1 ring-white/10";
+  }
+  return isSelected
+    ? "bg-blurple/15 text-ink"
+    : "text-ink-dim hover:bg-white/[0.06]";
+};
+
 const ModelDropdown = ({
   value,
   onChange,
@@ -50,7 +64,23 @@ const ModelDropdown = ({
   const [models, setModels] = useState<ModelOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const openMenu = () => {
+    setOpen(true);
+    const idx = models.findIndex((m) => m.id === value);
+    setHighlightedIndex(Math.max(idx, 0));
+  };
+
+  const closeMenu = (refocus = true) => {
+    setOpen(false);
+    if (refocus) {
+      triggerRef.current?.focus();
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -117,6 +147,63 @@ const ModelDropdown = ({
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
+  useEffect(() => {
+    if (open && highlightedIndex >= 0) {
+      optionRefs.current[highlightedIndex]?.scrollIntoView({
+        block: "nearest",
+      });
+    }
+  }, [open, highlightedIndex]);
+
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
+    if (!open) {
+      if (
+        e.key === "ArrowDown" ||
+        e.key === "ArrowUp" ||
+        e.key === "Enter" ||
+        e.key === " "
+      ) {
+        e.preventDefault();
+        openMenu();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (models.length > 0) {
+        setHighlightedIndex((i) => (i + 1) % models.length);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (models.length > 0) {
+        setHighlightedIndex((i) => (i - 1 + models.length) % models.length);
+      }
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      if (models.length > 0) {
+        setHighlightedIndex(0);
+      }
+    } else if (e.key === "End") {
+      e.preventDefault();
+      if (models.length > 0) {
+        setHighlightedIndex(models.length - 1);
+      }
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      const selected = models[highlightedIndex];
+      if (selected) {
+        onChange(selected.id);
+        closeMenu(true);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeMenu(true);
+    } else if (e.key === "Tab") {
+      closeMenu(false);
+    }
+  };
+
   let body: ReactNode;
   if (loading) {
     body = (
@@ -131,21 +218,26 @@ const ModelDropdown = ({
       </li>
     );
   } else {
-    body = models.map((m) => (
-      <li key={m.id}>
+    body = models.map((m, idx) => (
+      <li key={m.id} role="presentation">
         <button
+          ref={(el) => {
+            optionRefs.current[idx] = el;
+          }}
           type="button"
           role="option"
+          id={`model-opt-${m.id}`}
+          tabIndex={-1}
           aria-selected={m.id === value}
+          onMouseEnter={() => setHighlightedIndex(idx)}
           onClick={() => {
             onChange(m.id);
-            setOpen(false);
+            closeMenu(true);
           }}
-          className={`flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left transition ${
+          className={`flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left transition ${getModelOptionClassName(
+            idx === highlightedIndex,
             m.id === value
-              ? "bg-blurple/15 text-ink"
-              : "text-ink-dim hover:bg-white/[0.06]"
-          }`}
+          )}`}
         >
           <span className="min-w-0 flex-1 truncate font-mono text-[12px]">
             {m.label}
@@ -164,12 +256,26 @@ const ModelDropdown = ({
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative" onKeyDown={handleKeyDown}>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (open) {
+            closeMenu(false);
+          } else {
+            openMenu();
+          }
+        }}
+        id="model-dropdown-button"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? "model-dropdown-list" : undefined}
+        aria-activedescendant={
+          open && models[highlightedIndex]
+            ? `model-opt-${models[highlightedIndex].id}`
+            : undefined
+        }
         className="text-ink-dim hover:text-ink inline-flex max-w-[200px] items-center gap-1.5 bg-white/[0.04] px-2 py-1 font-mono text-[11px] font-medium ring-1 ring-white/[0.08] transition hover:bg-white/[0.08]"
         title="Model for this message"
       >
@@ -186,6 +292,7 @@ const ModelDropdown = ({
             Model
           </p>
           <ul
+            id="model-dropdown-list"
             role="listbox"
             aria-label="Select model"
             className="max-h-60 overflow-y-auto p-1.5"
@@ -211,8 +318,11 @@ export const Composer = ({
   const [value, setValue] = useState("");
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
   const [model, setModel] = useState(DEFAULT_MODEL);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const mentionItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const candidates = useMemo(() => {
     const q = mentionQuery.toLowerCase();
@@ -242,6 +352,39 @@ export const Composer = ({
       }));
     return [...agentHits, ...humanHits].slice(0, 7);
   }, [agents, humans, mentionQuery]);
+
+  useEffect(() => {
+    setMentionIndex(0);
+  }, [mentionQuery]);
+
+  const activeMentionIndex =
+    candidates.length > 0
+      ? Math.max(0, Math.min(mentionIndex, candidates.length - 1))
+      : 0;
+
+  useEffect(() => {
+    if (mentionOpen && candidates.length > 0) {
+      mentionItemRefs.current[activeMentionIndex]?.scrollIntoView({
+        block: "nearest",
+      });
+    }
+  }, [mentionOpen, activeMentionIndex, candidates.length]);
+
+  useEffect(() => {
+    if (!mentionOpen) {
+      return;
+    }
+    const onPointerDown = (e: PointerEvent): void => {
+      if (
+        composerRef.current &&
+        !composerRef.current.contains(e.target as Node)
+      ) {
+        setMentionOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [mentionOpen]);
 
   useEffect(
     () => () => {
@@ -308,7 +451,7 @@ export const Composer = ({
   };
 
   return (
-    <div className="shrink-0 px-4 pb-4">
+    <div ref={composerRef} className="shrink-0 px-4 pb-4">
       {typingNames.length > 0 && (
         <p className="text-ink-faint mb-1.5 flex items-center gap-1.5 px-1 text-[12px] font-medium">
           <span className="inline-flex gap-1">
@@ -333,10 +476,24 @@ export const Composer = ({
             <p className="text-ink-faint border-b border-white/[0.06] px-3 py-2 font-mono text-[10px] font-bold tracking-[0.12em] uppercase">
               Mention — agents first
             </p>
-            <ul className="max-h-56 overflow-y-auto p-1.5">
-              {candidates.map((c) => (
-                <li key={`${c.kind}-${c.label}`}>
+            <ul
+              id="mention-candidates-list"
+              role="listbox"
+              aria-label="Mention candidates"
+              className="max-h-56 overflow-y-auto p-1.5"
+            >
+              {candidates.map((c, idx) => (
+                <li key={`${c.kind}-${c.label}`} role="presentation">
                   <button
+                    ref={(el) => {
+                      mentionItemRefs.current[idx] = el;
+                    }}
+                    type="button"
+                    role="option"
+                    id={`mention-opt-${idx}`}
+                    tabIndex={-1}
+                    aria-selected={idx === activeMentionIndex}
+                    onMouseEnter={() => setMentionIndex(idx)}
                     onClick={() =>
                       insertMention(
                         c.kind === "agent"
@@ -344,7 +501,11 @@ export const Composer = ({
                           : (c.label.split(" ")[0] ?? c.label)
                       )
                     }
-                    className="hover:bg-blurple/15 flex w-full items-center gap-2.5 px-2 py-1.5 text-left transition"
+                    className={`flex w-full items-center gap-2.5 px-2 py-1.5 text-left transition ${
+                      idx === activeMentionIndex
+                        ? "bg-blurple/25 text-ink ring-blurple/50 ring-1"
+                        : "text-ink-dim hover:bg-blurple/15"
+                    }`}
                   >
                     <Avatar
                       name={c.label}
@@ -400,6 +561,38 @@ export const Composer = ({
             value={value}
             onChange={(e) => handleChange(e.target.value)}
             onKeyDown={(e) => {
+              if (mentionOpen && candidates.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setMentionIndex((i) => (i + 1) % candidates.length);
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setMentionIndex(
+                    (i) => (i - 1 + candidates.length) % candidates.length
+                  );
+                  return;
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  const target = candidates[activeMentionIndex];
+                  if (target) {
+                    insertMention(
+                      target.kind === "agent"
+                        ? target.label
+                        : (target.label.split(" ")[0] ?? target.label)
+                    );
+                  }
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setMentionOpen(false);
+                  return;
+                }
+              }
+
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 (e.target as HTMLTextAreaElement).form?.requestSubmit();
@@ -414,6 +607,18 @@ export const Composer = ({
                 : "Message the room — @neb, @marketing, @researcher…"
             }
             disabled={!connected}
+            aria-expanded={mentionOpen}
+            aria-autocomplete="list"
+            aria-controls={
+              mentionOpen && candidates.length > 0
+                ? "mention-candidates-list"
+                : undefined
+            }
+            aria-activedescendant={
+              mentionOpen && candidates.length > 0
+                ? `mention-opt-${activeMentionIndex}`
+                : undefined
+            }
             aria-label={
               variant === "thread" ? "Steer thread agents" : "Message the room"
             }
