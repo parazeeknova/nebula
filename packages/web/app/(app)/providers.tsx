@@ -5,8 +5,8 @@ import type { ReactNode } from "react";
 import type { Identity } from "spacetimedb";
 import { SpacetimeDBProvider } from "spacetimedb/react";
 
-import { DbConnection } from "../src/module_bindings";
-import type { ErrorContext } from "../src/module_bindings";
+import { DbConnection } from "../../src/module_bindings";
+import type { ErrorContext } from "../../src/module_bindings";
 
 const HOST =
   process.env.NEXT_PUBLIC_SPACETIMEDB_HOST ?? "wss://maincloud.spacetimedb.com";

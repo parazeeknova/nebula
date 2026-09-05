@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Poppins } from "next/font/google";
 
-import { Providers } from "./providers";
-
 import "./globals.css";
 
 /**
@@ -23,15 +21,17 @@ const code = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  description: "Nebula — one shared brain per room, on a live canvas",
-  title: "Nebula",
+  description:
+    "Neb — one shared AI workspace per team. Rooms with memory that compounds, agents that route per message, and parallel questions that merge into one answer.",
+  title: {
+    default: "Neb — the shared AI workspace",
+    template: "%s · Neb",
+  },
 };
 
 const RootLayout = ({ children }: { children: React.ReactNode }) => (
   <html lang="en">
-    <body className={`${sans.variable} ${code.variable}`}>
-      <Providers>{children}</Providers>
-    </body>
+    <body className={`${sans.variable} ${code.variable}`}>{children}</body>
   </html>
 );
 

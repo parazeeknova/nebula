@@ -1,10 +1,5 @@
-import { WorkspaceShell } from "../components/workspace/workspace-shell";
-import { SharedTablesProvider } from "../lib/shared-tables";
+import { Landing } from "../components/landing/landing";
 
-const Home = () => (
-  <SharedTablesProvider>
-    <WorkspaceShell />
-  </SharedTablesProvider>
-);
+const Home = () => <Landing />;
 
 export default Home;
