@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
+import { getUserSession, saveUserSession } from "@/lib/session";
+
 import { ChevronLeftIcon, HashIcon, PlusIcon, XIcon } from "../icons";
 
 export const parseRoomCode = (input: string): bigint | null => {
@@ -54,9 +56,12 @@ export const EntryFlowModal = ({
   onCreateRoom,
   onJoinRoom,
 }: Props) => {
-  const [step, setStep] = useState<"profile" | "choose">("profile");
-  const [name, setName] = useState(initialName);
-  const [email, setEmail] = useState(initialEmail);
+  const [session, setSession] = useState(() => getUserSession());
+  const [step, setStep] = useState<"profile" | "choose">(() =>
+    session.hasSession ? "choose" : "profile"
+  );
+  const [name, setName] = useState(session.name || initialName);
+  const [email, setEmail] = useState(session.email || initialEmail);
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [roomCode, setRoomCode] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -65,14 +70,22 @@ export const EntryFlowModal = ({
 
   useEffect(() => {
     if (isOpen) {
-      const savedName = localStorage.getItem("nebula_user_name") || initialName;
-      const savedEmail =
-        localStorage.getItem("nebula_user_email") || initialEmail;
-      if (savedName) {
-        setName(savedName);
-      }
-      if (savedEmail) {
-        setEmail(savedEmail);
+      const cur = getUserSession();
+      setSession(cur);
+      if (cur.hasSession) {
+        setName(cur.name);
+        setEmail(cur.email);
+        setStep("choose");
+      } else {
+        const savedName = cur.name || initialName;
+        const savedEmail = cur.email || initialEmail;
+        if (savedName) {
+          setName(savedName);
+        }
+        if (savedEmail) {
+          setEmail(savedEmail);
+        }
+        setStep("profile");
       }
     }
   }, [isOpen, initialName, initialEmail]);
@@ -88,6 +101,8 @@ export const EntryFlowModal = ({
     if (!cleanName || !cleanEmail) {
       return;
     }
+    saveUserSession(cleanName, cleanEmail);
+    setSession({ email: cleanEmail, hasSession: true, name: cleanName });
     onSaveProfile(cleanName, cleanEmail);
     setStep("choose");
   };
@@ -227,6 +242,29 @@ export const EntryFlowModal = ({
               Create a fresh room or join an existing channel with a room code.
             </p>
 
+            {session.hasSession && (
+              <div className="mt-4 flex items-center justify-between border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[12px]">
+                <div className="text-ink-dim flex min-w-0 items-center gap-2">
+                  <span className="bg-mint h-1.5 w-1.5 shrink-0 rounded-full" />
+                  <span className="truncate">
+                    Profile:{" "}
+                    <strong className="text-white">{session.name}</strong> (
+                    {session.email})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("profile");
+                    setJoinError(null);
+                  }}
+                  className="text-ink-ghost ml-2 shrink-0 cursor-pointer underline transition hover:text-white"
+                >
+                  Edit
+                </button>
+              </div>
+            )}
+
             <div className="mt-6 space-y-3">
               {/* Option 1: Make a room */}
               <div className="border border-white/10 bg-[#12151c] p-4 transition hover:border-white/20">
@@ -326,7 +364,9 @@ export const EntryFlowModal = ({
               className="text-ink-dim hover:text-ink mt-5 flex cursor-pointer items-center gap-1 text-[12.5px] transition"
             >
               <ChevronLeftIcon className="h-3.5 w-3.5" />
-              <span>Back to profile</span>
+              <span>
+                {session.hasSession ? "Edit profile info" : "Back to profile"}
+              </span>
             </button>
           </div>
         )}

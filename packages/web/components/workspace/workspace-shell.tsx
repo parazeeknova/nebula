@@ -14,6 +14,7 @@ import {
   useRenameRoom,
   useWorkspace,
 } from "@/lib/live";
+import { getUserSession, saveUserSession } from "@/lib/session";
 
 import { CanvasSkeleton } from "../room/placeholders";
 import { RoomView } from "../room/room-view";
@@ -70,20 +71,27 @@ export const WorkspaceShell = () => {
     const params = new URLSearchParams(window.location.search);
     const hasEntryParam =
       params.get("entry") === "1" || params.get("entry") === "true";
-    const hasOnboarded = localStorage.getItem("nebula_onboarded") === "true";
-    if (hasEntryParam || (!hasOnboarded && rooms.length === 0)) {
+    const session = getUserSession();
+    if (hasEntryParam || (!session.hasSession && rooms.length === 0)) {
       setShowEntryFlow(true);
     }
   }, [rooms.length]);
 
+  useEffect(() => {
+    const session = getUserSession();
+    if (
+      session.name &&
+      (me.displayName.startsWith("…") || me.displayName.endsWith("…"))
+    ) {
+      me.rename(session.name);
+    }
+  }, [me.displayName, me]);
+
   const handleSaveProfile = useCallback(
     (name: string, email: string) => {
+      saveUserSession(name, email);
       if (name.trim()) {
         me.rename(name.trim());
-        localStorage.setItem("nebula_user_name", name.trim());
-      }
-      if (email.trim()) {
-        localStorage.setItem("nebula_user_email", email.trim());
       }
     },
     [me]
