@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 
-import type { Agent, ChatMessage, Thread } from "@/lib/room-types";
+import type { Agent, ChatMessage, Thread, ThreadView } from "@/lib/room-types";
 import { ThreadStatus } from "@/lib/room-types";
 
 import { MessageItem } from "./message-item";
@@ -67,11 +67,15 @@ export const MessageList = ({
   threads,
   agents,
   roomName,
+  threadSummaries,
+  onOpenThread,
 }: {
   messages: ChatMessage[];
   threads: Thread[];
   agents: Agent[];
   roomName: string;
+  threadSummaries?: Map<string, ThreadView>;
+  onOpenThread?: (threadId: bigint) => void;
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -127,6 +131,7 @@ export const MessageList = ({
 
       {groups.map((g, gi) => {
         const t = titles.get(String(g.threadId));
+        const summary = threadSummaries?.get(String(g.threadId));
         return (
           <div key={`${String(g.threadId)}-${gi}`}>
             <ThreadDivider
@@ -134,14 +139,26 @@ export const MessageList = ({
               status={t?.status ?? ThreadStatus.Open}
               count={g.items.length}
             />
-            {g.items.map((m, j) => (
-              <MessageItem
-                key={String(m.messageId)}
-                msg={m}
-                agents={agents}
-                compact={isCompact(m, g.items[j - 1])}
-              />
-            ))}
+            {g.items.map((m, j) => {
+              const threadFooter =
+                m.role === 0 && onOpenThread
+                  ? {
+                      lastAgentName: summary?.lastAgentName,
+                      onOpen: () => onOpenThread(m.threadId),
+                      replyCount: summary?.replyCount ?? 0,
+                      streaming: summary?.streaming,
+                    }
+                  : undefined;
+              return (
+                <MessageItem
+                  key={String(m.messageId)}
+                  msg={m}
+                  agents={agents}
+                  compact={isCompact(m, g.items[j - 1])}
+                  threadFooter={threadFooter}
+                />
+              );
+            })}
           </div>
         );
       })}

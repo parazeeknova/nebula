@@ -126,6 +126,29 @@ export interface Thread {
   status: number;
 }
 
+export interface ThreadView {
+  thread: Thread;
+  replyCount: number;
+  lastAgentName?: string;
+  streaming: boolean;
+}
+
+export interface AgentWorkJob {
+  jobId: bigint;
+  prompt: string;
+  angle: string;
+  status: number;
+  taggedAgent?: bigint;
+}
+
+export interface AgentWork {
+  agent: Agent;
+  jobs: AgentWorkJob[];
+  messages: ChatMessage[];
+  status: "working" | "done" | "failed" | "idle";
+  preview: string;
+}
+
 export interface MergeBanner {
   sessionId: bigint;
   roomId: bigint;

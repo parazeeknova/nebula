@@ -53,63 +53,110 @@ const renderBody = (body: string, agents: Agent[]) => {
   });
 };
 
+export interface ThreadFooterInfo {
+  replyCount: number;
+  lastAgentName?: string;
+  streaming?: boolean;
+  onOpen: () => void;
+}
+
+const SystemMessage = ({ body }: { body: string }) => (
+  <div className="flex items-center gap-3 px-4 py-1.5">
+    <span className="h-px flex-1 bg-white/[0.07]" />
+    <span className="text-ink-ghost max-w-full truncate font-mono text-[11px]">
+      {body}
+    </span>
+    <span className="h-px flex-1 bg-white/[0.07]" />
+  </div>
+);
+
+const SynthesisMessage = ({
+  msg,
+  text,
+  agents,
+}: {
+  msg: ChatMessage;
+  text: string;
+  agents: Agent[];
+}) => (
+  <div className="msg-row px-4 py-2">
+    <div className="border-gold/25 from-gold/[0.08] overflow-hidden rounded-xl border bg-gradient-to-br to-transparent">
+      <div className="border-gold/15 flex items-center gap-2 border-b px-4 py-2">
+        <SparkleIcon className="text-gold h-4 w-4" />
+        <span className="text-gold font-mono text-[11px] font-bold tracking-[0.12em] uppercase">
+          Synthesized answer
+        </span>
+        <span className="text-ink-ghost ml-auto font-mono text-[11px]">
+          {msg.createdAt}
+        </span>
+      </div>
+      <div className="flex gap-3 px-4 py-3">
+        <Avatar name={msg.authorName} color={msg.authorColor} size={36} bot />
+        <div className="min-w-0">
+          <p className="text-ink text-[14px] leading-relaxed">
+            {renderBody(text, agents)}
+          </p>
+          <p className="text-ink-faint mt-1.5 text-[12px]">
+            Pinned as the room answer · from 2 merged threads
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const ThreadFooterButton = ({ info }: { info: ThreadFooterInfo }) => (
+  <div className="mt-2.5">
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        info.onOpen();
+      }}
+      className="text-ink-dim inline-flex items-center gap-2 rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-[12px] font-medium ring-1 ring-white/[0.08] transition hover:bg-white/[0.08] hover:text-white"
+      aria-label={`View thread with ${info.replyCount} replies`}
+    >
+      <span className="text-blurple text-[13px]">💬</span>
+      <span className="font-semibold text-white">
+        {info.replyCount > 0
+          ? `${info.replyCount} ${info.replyCount === 1 ? "reply" : "replies"}`
+          : "View thread"}
+      </span>
+      {info.lastAgentName && (
+        <span className="text-ink-faint hidden sm:inline">
+          · last from{" "}
+          <strong className="text-ink-dim">{info.lastAgentName}</strong>
+        </span>
+      )}
+      {info.streaming && (
+        <span className="flex items-center gap-1 font-mono text-[11px] font-semibold text-[#8b9bff]">
+          <span className="animate-pulse-dot bg-blurple h-1.5 w-1.5 rounded-full" />
+          streaming
+        </span>
+      )}
+    </button>
+  </div>
+);
+
 export const MessageItem = ({
   msg,
   agents,
   compact,
+  threadFooter,
 }: {
   msg: ChatMessage;
   agents: Agent[];
   compact: boolean;
+  threadFooter?: ThreadFooterInfo;
 }) => {
   if (msg.role === 3) {
-    return (
-      <div className="flex items-center gap-3 px-4 py-1.5">
-        <span className="h-px flex-1 bg-white/[0.07]" />
-        <span className="text-ink-ghost max-w-full truncate font-mono text-[11px]">
-          {msg.body}
-        </span>
-        <span className="h-px flex-1 bg-white/[0.07]" />
-      </div>
-    );
+    return <SystemMessage body={msg.body} />;
   }
 
   const text = fullText(msg);
   const isAgent = msg.authorAgent !== null;
-  const isSynthesis = msg.role === 2;
 
-  if (isSynthesis) {
-    return (
-      <div className="msg-row px-4 py-2">
-        <div className="border-gold/25 from-gold/[0.08] overflow-hidden rounded-xl border bg-gradient-to-br to-transparent">
-          <div className="border-gold/15 flex items-center gap-2 border-b px-4 py-2">
-            <SparkleIcon className="text-gold h-4 w-4" />
-            <span className="text-gold font-mono text-[11px] font-bold tracking-[0.12em] uppercase">
-              Synthesized answer
-            </span>
-            <span className="text-ink-ghost ml-auto font-mono text-[11px]">
-              {msg.createdAt}
-            </span>
-          </div>
-          <div className="flex gap-3 px-4 py-3">
-            <Avatar
-              name={msg.authorName}
-              color={msg.authorColor}
-              size={36}
-              bot
-            />
-            <div className="min-w-0">
-              <p className="text-ink text-[14px] leading-relaxed">
-                {renderBody(text, agents)}
-              </p>
-              <p className="text-ink-faint mt-1.5 text-[12px]">
-                Pinned as the room answer · from 2 merged threads
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  if (msg.role === 2) {
+    return <SynthesisMessage msg={msg} text={text} agents={agents} />;
   }
 
   if (compact) {
@@ -181,6 +228,8 @@ export const MessageItem = ({
             aria-hidden
           />
         )}
+
+        {threadFooter && <ThreadFooterButton info={threadFooter} />}
       </div>
     </div>
   );

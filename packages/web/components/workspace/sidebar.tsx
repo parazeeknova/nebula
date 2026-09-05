@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { MemoryFact } from "@/lib/live";
 import type { Room } from "@/lib/room-types";
@@ -10,8 +10,10 @@ import {
   CompassIcon,
   DbIcon,
   GearIcon,
+  HashIcon,
   PlusIcon,
   SearchIcon,
+  XIcon,
 } from "../icons";
 
 interface Props {
@@ -52,7 +54,18 @@ export const Sidebar = ({
   onCreateRoom,
   onRenameMe,
   onToggleCollapse,
+  onCloseMobile,
 }: Props) => {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredRooms = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return rooms;
+    }
+    const q = searchQuery.toLowerCase().trim();
+    return rooms.filter((r) => r.name.toLowerCase().includes(q));
+  }, [rooms, searchQuery]);
+
   const width = collapsed ? "w-[68px]" : "w-60";
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -74,77 +87,145 @@ export const Sidebar = ({
 
   return (
     <aside
-      className={`${width} bg-panel max-md:shadow-pop flex shrink-0 flex-col border-r border-white/[0.06] transition-[width] duration-200 ease-out max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-72`}
-      aria-label="Rooms"
+      className={`${width} bg-panel max-md:shadow-pop flex h-full shrink-0 flex-col border-r border-white/[0.06] transition-[width] duration-200 ease-out select-none max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-72`}
+      aria-label="Sidebar navigation"
     >
-      {/* search */}
+      {/* brand header aligned flush with chrome tabs */}
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
+        {collapsed ? (
+          <button
+            onClick={onToggleCollapse}
+            title="Expand sidebar (⌘B)"
+            className="bg-blurple-soft mx-auto grid h-7 w-7 place-items-center rounded-lg text-xs font-bold text-[#8b9bff] transition hover:brightness-125"
+          >
+            N
+          </button>
+        ) : (
+          <>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="bg-blurple-soft grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs font-bold text-[#8b9bff] shadow-[0_0_12px_rgba(88,101,242,0.35)]">
+                N
+              </span>
+              <div className="flex min-w-0 flex-col">
+                <span className="font-display truncate text-[14px] font-bold tracking-tight text-white">
+                  Nebula
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onToggleCollapse}
+                className="text-ink-faint hover:text-ink hidden rounded p-1.5 transition hover:bg-white/5 md:block"
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar (⌘B)"
+              >
+                <ChevronLeftIcon className="h-4 w-4" />
+              </button>
+              {onCloseMobile ? (
+                <button
+                  onClick={onCloseMobile}
+                  className="text-ink-faint hover:text-ink rounded p-1.5 transition hover:bg-white/5 md:hidden"
+                  aria-label="Close sidebar"
+                >
+                  <XIcon className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* search box */}
       {!collapsed && (
-        <div className="px-2 pt-2">
-          <label className="group text-ink-faint focus-within:ring-blurple/60 flex h-8 cursor-text items-center gap-2 rounded-md bg-black/60 px-2.5 text-[13px] ring-1 ring-white/10 transition">
-            <SearchIcon className="h-3.5 w-3.5" />
+        <div className="px-2 pt-2.5">
+          <label className="group text-ink-faint focus-within:ring-blurple/60 focus-within:text-ink flex h-8 cursor-text items-center gap-2 rounded-md bg-black/60 px-2.5 text-[13px] ring-1 ring-white/10 transition">
+            <SearchIcon className="h-3.5 w-3.5 shrink-0" />
             <input
-              placeholder="Search rooms"
-              className="text-ink placeholder:text-ink-ghost w-full bg-transparent outline-none"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search rooms..."
+              className="text-ink placeholder:text-ink-ghost w-full min-w-0 bg-transparent text-[13px] outline-none"
               aria-label="Search rooms"
             />
-            <kbd className="text-ink-faint hidden rounded border border-white/10 bg-white/5 px-1 font-mono text-[10px] lg:block">
-              ⌘K
-            </kbd>
+            {searchQuery ? (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="text-ink-ghost hover:text-ink"
+                aria-label="Clear search"
+              >
+                <XIcon className="h-3 w-3" />
+              </button>
+            ) : (
+              <kbd className="text-ink-faint hidden rounded border border-white/10 bg-white/5 px-1 font-mono text-[10px] lg:block">
+                ⌘K
+              </kbd>
+            )}
           </label>
         </div>
       )}
 
-      {/* room list */}
+      {/* room list & workspace tools */}
       <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
         {!collapsed && (
-          <div className="mb-1 flex items-center justify-between px-2">
+          <div className="mb-1.5 flex items-center justify-between px-2">
             <span className="text-ink-faint font-mono text-[10px] font-semibold tracking-[0.14em] uppercase">
-              Text rooms — {rooms.length}
+              Channels — {filteredRooms.length}
             </span>
             <button
               className="text-ink-faint hover:text-ink rounded p-1 transition hover:bg-white/5"
-              aria-label="Create room"
-              title="Create room"
+              aria-label="Create channel"
+              title="Create channel"
               onClick={onCreateRoom}
             >
               <PlusIcon className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
+
         <ul className="flex flex-col gap-[2px]">
-          {rooms.map((room) => {
+          {filteredRooms.map((room) => {
             const active = room.roomId === activeRoomId;
             const online = onlineCounts[String(room.roomId)] ?? 0;
             return (
               <li key={String(room.roomId)} className="relative">
-                {active && (
-                  <span className="bg-ink absolute top-1/2 left-[-8px] h-8 w-1 -translate-y-1/2 rounded-r-full" />
+                {active && !collapsed && (
+                  <span className="bg-blurple absolute top-1.5 bottom-1.5 left-0 w-1 rounded-r-full shadow-[0_0_8px_rgba(88,101,242,0.8)]" />
                 )}
                 <button
                   onClick={() => onSelect(room.roomId)}
                   title={collapsed ? room.name : undefined}
-                  className={`group flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[14px] transition-all duration-150 ${rowTone(active, room.unread)} ${collapsed ? "justify-center px-0" : ""}`}
+                  className={`group relative flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[13.5px] transition-all duration-150 ${rowTone(active, room.unread)} ${collapsed ? "justify-center px-0 py-1.5" : ""}`}
                   aria-current={active ? "page" : undefined}
                 >
                   {collapsed ? (
                     <span
-                      className={`grid h-9 w-9 place-items-center rounded-xl text-[15px] font-bold transition ${
+                      className={`relative grid h-9 w-9 place-items-center rounded-xl text-[14px] font-bold transition ${
                         active
                           ? "bg-blurple text-white shadow-[0_4px_14px_rgba(88,101,242,0.5)]"
-                          : "text-ink-dim group-hover:text-ink bg-white/[0.06] group-hover:bg-white/10"
+                          : "text-ink-dim group-hover:text-ink bg-white/[0.05] group-hover:bg-white/10"
                       }`}
                     >
                       {room.name.slice(0, 1).toUpperCase()}
+                      {room.unread && !active && (
+                        <span className="bg-blurple absolute top-0.5 right-0.5 h-2 w-2 rounded-full ring-2 ring-[#0a0b0d]" />
+                      )}
                     </span>
                   ) : (
                     <>
+                      <HashIcon
+                        className={`h-4 w-4 shrink-0 transition ${
+                          active
+                            ? "text-blurple"
+                            : "text-ink-ghost group-hover:text-ink-dim"
+                        }`}
+                      />
                       <span className="min-w-0 flex-1 truncate">
                         {room.name}
                       </span>
                       {room.unread && !active ? (
                         <span
-                          className="bg-ink h-2 w-2 shrink-0 rounded-full"
-                          aria-label="Unread"
+                          className="bg-blurple h-2 w-2 shrink-0 rounded-full shadow-[0_0_6px_rgba(88,101,242,0.8)]"
+                          aria-label="Unread messages"
                         />
                       ) : (
                         <span className="text-ink-ghost hidden shrink-0 items-center gap-1 font-mono text-[10px] group-hover:flex">
@@ -158,19 +239,24 @@ export const Sidebar = ({
               </li>
             );
           })}
+          {filteredRooms.length === 0 && !collapsed && (
+            <li className="px-2 py-4 text-center">
+              <p className="text-ink-ghost text-xs">No rooms found</p>
+            </li>
+          )}
         </ul>
 
         {!collapsed && (
           <>
-            <div className="mt-5 mb-1 px-2">
+            <div className="mt-5 mb-1.5 px-2">
               <span className="text-ink-faint font-mono text-[10px] font-semibold tracking-[0.14em] uppercase">
                 Workspace
               </span>
             </div>
             <ul className="flex flex-col gap-[2px]">
               <li>
-                <button className="text-ink-dim hover:text-ink flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[14px] font-medium transition hover:bg-white/[0.04]">
-                  <CompassIcon className="text-ink-ghost h-[18px] w-[18px]" />
+                <button className="text-ink-dim hover:text-ink flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[13.5px] font-medium transition hover:bg-white/[0.04]">
+                  <CompassIcon className="text-ink-ghost h-4 w-4" />
                   <span className="flex-1 truncate">Overview</span>
                   <span className="bg-blurple-soft rounded px-1.5 py-px font-mono text-[10px] font-semibold text-[#8b9bff]">
                     live
@@ -182,9 +268,9 @@ export const Sidebar = ({
                   onClick={() => setMemoryOpen((v) => !v)}
                   aria-expanded={memoryOpen}
                   aria-label="Toggle workspace memory"
-                  className="text-ink-dim hover:text-ink flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[14px] font-medium transition hover:bg-white/[0.04]"
+                  className="text-ink-dim hover:text-ink flex w-full items-center gap-2 rounded-md px-2 py-[7px] text-left text-[13.5px] font-medium transition hover:bg-white/[0.04]"
                 >
-                  <DbIcon className="text-ink-ghost h-[18px] w-[18px]" />
+                  <DbIcon className="text-ink-ghost h-4 w-4" />
                   <span className="flex-1 truncate">Memory</span>
                   <span className="rounded bg-white/5 px-1.5 py-px font-mono text-[10px] text-[#8b9bff]">
                     {memoryCount}
@@ -220,7 +306,7 @@ export const Sidebar = ({
         )}
       </nav>
 
-      {/* me card + collapse */}
+      {/* me profile card + collapse */}
       <div className="bg-panel-2 shrink-0 border-t border-white/[0.06] px-2 py-2">
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 py-1 max-md:hidden">
@@ -238,7 +324,7 @@ export const Sidebar = ({
               onClick={onToggleCollapse}
               className="text-ink-faint hover:text-ink rotate-180 rounded p-1.5 transition hover:bg-white/5"
               aria-label="Expand sidebar"
-              title="Expand sidebar"
+              title="Expand sidebar (⌘B)"
             >
               <ChevronLeftIcon className="h-4 w-4" />
             </button>
@@ -292,6 +378,7 @@ export const Sidebar = ({
             <button
               className="text-ink-faint hover:text-ink rounded p-1.5 transition hover:bg-white/5"
               aria-label="Settings"
+              title="Settings"
             >
               <GearIcon className="h-4 w-4" />
             </button>
@@ -299,7 +386,7 @@ export const Sidebar = ({
               onClick={onToggleCollapse}
               className="text-ink-faint hover:text-ink rounded p-1.5 transition hover:bg-white/5 max-md:hidden"
               aria-label="Collapse sidebar"
-              title="Collapse sidebar"
+              title="Collapse sidebar (⌘B)"
             >
               <ChevronLeftIcon className="h-4 w-4" />
             </button>

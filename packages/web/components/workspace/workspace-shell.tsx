@@ -55,13 +55,23 @@ export const WorkspaceShell = () => {
   const [mobileNav, setMobileNav] = useState(false);
   const pendingSelect = useRef(false);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setCollapsed((c) => !c);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   // Open the first room once the list loads. Also recovers when the
   // active id goes stale (e.g. the room was archived elsewhere).
   const activeRoom =
     activeRoomId === null
       ? undefined
       : rooms.find((r) => r.roomId === activeRoomId);
-
   useEffect(() => {
     if (!ready || rooms.length === 0 || activeRoom !== undefined) {
       return;
@@ -153,24 +163,37 @@ export const WorkspaceShell = () => {
   })();
 
   return (
-    <div className="bg-abyss text-ink flex h-dvh flex-col overflow-hidden">
-      <ChromeTabs
-        openRooms={openRooms}
-        activeRoomId={activeRoomId ?? 0n}
-        connected={connected}
-        onActivate={select}
-        onClose={close}
-        onNew={handleCreate}
-      />
+    <div className="bg-abyss text-ink flex h-dvh overflow-hidden">
+      {/* desktop sidebar */}
+      <div className="hidden shrink-0 md:flex">
+        <Sidebar
+          rooms={rooms}
+          activeRoomId={activeRoomId ?? 0n}
+          openRoomIds={openRoomIds}
+          collapsed={collapsed}
+          onlineCounts={onlineCounts}
+          me={me}
+          memoryCount={memory.count}
+          memoryFacts={memory.facts}
+          onSelect={select}
+          onCreateRoom={handleCreate}
+          onRenameMe={me.rename}
+          onToggleCollapse={() => setCollapsed((c) => !c)}
+        />
+      </div>
 
-      <div className="relative flex min-h-0 flex-1">
-        {/* desktop sidebar */}
-        <div className="hidden shrink-0 md:flex">
+      {/* mobile drawer */}
+      {mobileNav && (
+        <div className="absolute inset-0 z-50 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+            onClick={() => setMobileNav(false)}
+          />
           <Sidebar
             rooms={rooms}
             activeRoomId={activeRoomId ?? 0n}
             openRoomIds={openRoomIds}
-            collapsed={collapsed}
+            collapsed={false}
             onlineCounts={onlineCounts}
             me={me}
             memoryCount={memory.count}
@@ -179,36 +202,25 @@ export const WorkspaceShell = () => {
             onCreateRoom={handleCreate}
             onRenameMe={me.rename}
             onToggleCollapse={() => setCollapsed((c) => !c)}
+            onCloseMobile={() => setMobileNav(false)}
           />
         </div>
+      )}
 
-        {/* mobile drawer */}
-        {mobileNav && (
-          <div className="absolute inset-0 z-50 md:hidden">
-            <div
-              className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-              onClick={() => setMobileNav(false)}
-            />
-            <Sidebar
-              rooms={rooms}
-              activeRoomId={activeRoomId ?? 0n}
-              openRoomIds={openRoomIds}
-              collapsed={false}
-              onlineCounts={onlineCounts}
-              me={me}
-              memoryCount={memory.count}
-              memoryFacts={memory.facts}
-              onSelect={select}
-              onCreateRoom={handleCreate}
-              onRenameMe={me.rename}
-              onToggleCollapse={() => setCollapsed((c) => !c)}
-              onCloseMobile={() => setMobileNav(false)}
-            />
-          </div>
-        )}
+      {/* right pane: tabs on top + main canvas below */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <ChromeTabs
+          openRooms={openRooms}
+          activeRoomId={activeRoomId ?? 0n}
+          connected={connected}
+          onActivate={select}
+          onClose={close}
+          onNew={handleCreate}
+          onOpenNav={() => setMobileNav(true)}
+        />
 
         {/* canvas — single active room fills it */}
-        <main className="grain bg-chat relative min-w-0 flex-1">
+        <main className="grain bg-chat relative min-h-0 min-w-0 flex-1">
           <div
             className="pointer-events-none absolute inset-x-0 top-0 h-40"
             style={{

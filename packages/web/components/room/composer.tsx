@@ -13,6 +13,7 @@ interface Props {
   humans: RoomHuman[];
   typingNames: string[];
   connected: boolean;
+  variant?: "room" | "thread";
   onSend: (body: string, mentions: bigint[]) => void;
 }
 
@@ -21,6 +22,7 @@ export const Composer = ({
   humans,
   typingNames,
   connected,
+  variant = "room",
   onSend,
 }: Props) => {
   const [value, setValue] = useState("");
@@ -196,15 +198,21 @@ export const Composer = ({
                 setMentionOpen(false);
               }
             }}
-            placeholder="Message the room — @neb, @marketing, @researcher…"
+            placeholder={
+              variant === "thread"
+                ? "Steer agents in this thread — @mention to focus…"
+                : "Message the room — @neb, @marketing, @researcher…"
+            }
             disabled={!connected}
-            aria-label="Message the room"
+            aria-label={
+              variant === "thread" ? "Steer thread agents" : "Message the room"
+            }
             className="text-ink placeholder:text-ink-ghost max-h-[140px] min-h-[24px] w-full resize-none bg-transparent text-[14px] leading-relaxed outline-none disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={!value.trim() || !connected}
-            aria-label="Send message"
+            aria-label={variant === "thread" ? "Send steer" : "Send message"}
             className={`mb-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full transition-all ${
               value.trim() && connected
                 ? "bg-blurple hover:bg-blurple-deep text-white shadow-[0_4px_14px_rgba(88,101,242,0.55)]"
@@ -216,8 +224,9 @@ export const Composer = ({
         </form>
       </div>
       <p className="text-ink-ghost mt-1.5 hidden px-1 font-mono text-[10px] sm:block">
-        Enter to send · Shift+Enter newline · @ mentions an agent · answers
-        stream for the whole room
+        {variant === "thread"
+          ? "Enter to steer · Shift+Enter newline · @ mentions a specific agent"
+          : "Enter to send · Shift+Enter newline · @ mentions an agent · answers stream for the whole room"}
       </p>
     </div>
   );
