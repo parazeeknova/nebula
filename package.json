@@ -13,11 +13,14 @@
     "generate": "lerna run generate --scope @nebula/web --stream",
     "check": "ultracite fix",
     "check-types": "lerna run typecheck --stream",
+    "prepare": "lefthook install",
     "spacetime:publish:local": "bun --filter @nebula/spacetimedb run publish:local",
     "spacetime:publish": "bun --filter @nebula/spacetimedb run publish"
   },
   "devDependencies": {
+    "lefthook": "2.1.12",
     "lerna": "10.0.1",
+    "lint-staged": "17.5.0",
     "oxfmt": "0.66.0",
     "oxlint": "1.81.0",
     "typescript": "7.0.2",

@@ -1,0 +1,10 @@
+pre-commit:
+  commands:
+    lint-staged:
+      run: bunx lint-staged
+      stage_fixed: true
+
+pre-push:
+  commands:
+    check-types:
+      run: bun run check-types
