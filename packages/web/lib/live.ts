@@ -250,6 +250,43 @@ export const useRoomPresence = (roomId: bigint, enabled: boolean): void => {
   }, [roomId, enabled, joinRoom, heartbeat]);
 };
 
+/**
+ * Read a `?room=<id>` invite link from the URL. On first mount, the
+ * guest is joined to that room (idempotent) and the id is returned so
+ * the shell can select it. Returns null when there is no invite.
+ */
+export const useJoinByLink = (): bigint | null => {
+  const joinRoom = useReducer(reducers.joinRoom);
+  const [inviteId, setInviteId] = useState<bigint | null>(null);
+  const handled = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || handled.current) {
+      return;
+    }
+    const raw = new URLSearchParams(window.location.search).get("room");
+    if (!raw) {
+      return;
+    }
+    const id = BigInt(raw);
+    if (Number.isNaN(Number(raw)) || id <= 0n) {
+      return;
+    }
+    handled.current = true;
+    setInviteId(id);
+    const join = async (): Promise<void> => {
+      try {
+        await joinRoom({ roomId: id });
+      } catch (error) {
+        console.error("join_room failed", error);
+      }
+    };
+    void join();
+  }, [joinRoom]);
+
+  return inviteId;
+};
+
 /** Live stream ticks from the `stream_event` event table (never cached). */
 export const useStreamTicks = (): ReadonlyMap<string, StreamTick[]> => {
   const [ticks, setTicks] = useState<ReadonlyMap<string, StreamTick[]>>(

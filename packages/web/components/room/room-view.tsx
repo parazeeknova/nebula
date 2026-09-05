@@ -16,6 +16,7 @@ import { MergeBanner } from "./merge-banner";
 import { MessageList } from "./message-list";
 import { ChatSkeleton, PeopleSkeleton } from "./placeholders";
 import { RoomHeader } from "./room-header";
+import { ShareModal } from "./share-modal";
 import { ThreadPane } from "./thread-pane";
 
 export const RoomView = ({
@@ -38,6 +39,7 @@ export const RoomView = ({
 
   const [activeThreadId, setActiveThreadId] = useState<bigint | null>(null);
   const [membersOpen, setMembersOpen] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
   const [fallback, setFallback] = useState(false);
 
   const prevThreadCount = useRef(data.threads.length);
@@ -95,6 +97,7 @@ export const RoomView = ({
           newThreadArmed={newThreadArmed}
           onToggleMembers={() => setMembersOpen((v) => !v)}
           onNewThread={armNewThread}
+          onShare={() => setShareOpen(true)}
           onOpenNav={onOpenNav}
         />
 
@@ -160,6 +163,14 @@ export const RoomView = ({
             <PeopleSkeleton />
           )}
         </div>
+      )}
+
+      {shareOpen && (
+        <ShareModal
+          roomId={room.roomId}
+          roomName={room.name}
+          onClose={() => setShareOpen(false)}
+        />
       )}
     </div>
   );
