@@ -757,56 +757,60 @@ export const useThreadDetails = (
 
     const jobs = jobRows.filter((j) => j.threadId === threadId);
 
-    // Build one work tab per room agent from live data
-    const agentWork: AgentWork[] = agents.map((agent) => {
-      const agentMsgs = allMessages.filter(
-        (m) => m.authorAgent === agent.agentId
-      );
-      const agentJobs = jobs.filter(
-        (j) => j.taggedAgent === agent.agentId || j.taggedAgent === undefined
-      );
+    // Build one work tab per agent that actually ran in this thread. Idle
+    // agents (never tagged, no job, no reply) are omitted entirely.
+    const agentWork: AgentWork[] = agents
+      .map((agent) => {
+        const agentMsgs = allMessages.filter(
+          (m) => m.authorAgent === agent.agentId
+        );
+        const agentJobs = jobs.filter(
+          (j) => j.taggedAgent === agent.agentId || j.taggedAgent === undefined
+        );
 
-      let status: "working" | "done" | "failed" | "idle" = "idle";
-      if (
-        agentMsgs.some((m) => m.streaming) ||
-        agentJobs.some(
-          (j) => j.status === JobStatus.Running || j.status === JobStatus.Queued
-        )
-      ) {
-        status = "working";
-      } else if (agentJobs.some((j) => j.status === JobStatus.Failed)) {
-        status = "failed";
-      } else if (
-        agentMsgs.length > 0 ||
-        agentJobs.some((j) => j.status === JobStatus.Done)
-      ) {
-        status = "done";
-      }
+        let status: "working" | "done" | "failed" | "idle" = "idle";
+        if (
+          agentMsgs.some((m) => m.streaming) ||
+          agentJobs.some(
+            (j) =>
+              j.status === JobStatus.Running || j.status === JobStatus.Queued
+          )
+        ) {
+          status = "working";
+        } else if (agentJobs.some((j) => j.status === JobStatus.Failed)) {
+          status = "failed";
+        } else if (
+          agentMsgs.length > 0 ||
+          agentJobs.some((j) => j.status === JobStatus.Done)
+        ) {
+          status = "done";
+        }
 
-      const lastMsg = agentMsgs.at(-1);
-      let preview = "Ready to assist";
-      if (lastMsg) {
-        preview = (
-          lastMsg.body || lastMsg.chunks.map((c) => c.delta).join("")
-        ).slice(0, 140);
-      } else if (status === "working") {
-        preview = "Working on response…";
-      }
+        const lastMsg = agentMsgs.at(-1);
+        let preview = "";
+        if (lastMsg) {
+          preview = (
+            lastMsg.body || lastMsg.chunks.map((c) => c.delta).join("")
+          ).slice(0, 140);
+        } else if (status === "working") {
+          preview = "Working on response…";
+        }
 
-      return {
-        agent,
-        jobs: agentJobs.map((j) => ({
-          angle: j.angle,
-          jobId: j.jobId,
-          prompt: j.prompt,
-          status: j.status,
-          taggedAgent: j.taggedAgent,
-        })),
-        messages: agentMsgs,
-        preview,
-        status,
-      };
-    });
+        return {
+          agent,
+          jobs: agentJobs.map((j) => ({
+            angle: j.angle,
+            jobId: j.jobId,
+            prompt: j.prompt,
+            status: j.status,
+            taggedAgent: j.taggedAgent,
+          })),
+          messages: agentMsgs,
+          preview,
+          status,
+        };
+      })
+      .filter((work) => work.status !== "idle");
 
     return {
       agentWork,

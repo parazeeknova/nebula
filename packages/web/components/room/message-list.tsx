@@ -91,11 +91,14 @@ export const MessageList = ({
     return map;
   }, [threads]);
 
-  // Contiguous runs per thread in time order — every message renders,
-  // no matter which thread it belongs to or what state that thread is in.
+  // Contiguous runs per thread in time order. Only user/system rows are shown
+  // in the main chat — agent replies live inside the thread pane.
   const groups = useMemo(() => {
     const out: ThreadGroup[] = [];
     for (const m of messages) {
+      if (m.role !== 0 && m.role !== 3) {
+        continue;
+      }
       const last = out.at(-1);
       if (last && last.threadId === m.threadId) {
         last.items.push(m);
