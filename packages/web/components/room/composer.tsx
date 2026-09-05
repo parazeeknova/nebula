@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import type { Agent, RoomHuman } from "@/lib/room-types";
@@ -15,6 +15,8 @@ interface Props {
   connected: boolean;
   variant?: "room" | "thread";
   onSend: (body: string, mentions: bigint[]) => void;
+  onTyping?: () => void;
+  onStopTyping?: () => void;
 }
 
 export const Composer = ({
@@ -24,6 +26,8 @@ export const Composer = ({
   connected,
   variant = "room",
   onSend,
+  onTyping,
+  onStopTyping,
 }: Props) => {
   const [value, setValue] = useState("");
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -59,8 +63,20 @@ export const Composer = ({
     return [...agentHits, ...humanHits].slice(0, 7);
   }, [agents, humans, mentionQuery]);
 
+  useEffect(
+    () => () => {
+      onStopTyping?.();
+    },
+    [onStopTyping]
+  );
+
   const handleChange = (v: string) => {
     setValue(v);
+    if (v.trim()) {
+      onTyping?.();
+    } else {
+      onStopTyping?.();
+    }
     const m = v.match(/@(?<handle>[\w-]*)$/u);
     if (m) {
       setMentionOpen(true);
@@ -84,6 +100,7 @@ export const Composer = ({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    onStopTyping?.();
     const body = value.trim();
     if (!body || !connected) {
       return;

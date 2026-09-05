@@ -30,6 +30,9 @@ import type {
   ToolCallInfo,
 } from "./room-types";
 import { useSharedTables } from "./shared-tables";
+import { useTypingStatus } from "./typing";
+
+export { useTypingNotifier, useTypingStatus } from "./typing";
 
 const HEARTBEAT_MS = 20_000;
 const ONLINE_WINDOW_MS = 5 * 60_000;
@@ -324,6 +327,7 @@ export const useStreamTicks = (): ReadonlyMap<string, StreamTick[]> => {
 export interface RoomData {
   room: Room | undefined;
   thread: Thread | null;
+  generalThread: Thread | undefined;
   threads: Thread[];
   threadSummaries: Map<string, ThreadView>;
   messages: ChatMessage[];
@@ -331,6 +335,7 @@ export interface RoomData {
   humans: RoomHuman[];
   merges: MergeInfo[];
   memory: { count: number; latest: string[] };
+  jobs: { taggedAgent?: bigint; status: number; threadId: bigint }[];
   ready: boolean;
 }
 
@@ -362,7 +367,8 @@ const buildHumans = (
   }[],
   roomId: bigint,
   myHex: string,
-  presence: Map<string, string>
+  presence: Map<string, string>,
+  typingIdentities?: Set<string>
 ): RoomHuman[] =>
   roomHumanRows.map((h) => {
     const hex = hexOf(h.identity);
@@ -382,7 +388,7 @@ const buildHumans = (
       hex,
       identity: h.identity,
       isOnline: inRoom && presRow !== undefined && isFresh(presRow.lastSeen),
-      isTyping: false,
+      isTyping: Boolean(typingIdentities?.has(hex)),
       lastSeenMins,
       roleLabel: hex === myHex ? "you" : "member",
     };
@@ -572,6 +578,8 @@ export const useRoomData = (
     tables.merge_session.where((s) => s.roomId.eq(roomId))
   );
 
+  const { typingIdentities } = useTypingStatus(roomId);
+
   return useMemo(() => {
     const room = roomRows[0] ? toRoom(roomRows[0]) : undefined;
     const threadRow = pickActiveThread(threadRows);
@@ -618,7 +626,8 @@ export const useRoomData = (
       presenceRows,
       roomId,
       myHex,
-      presence
+      presence,
+      typingIdentities
     );
 
     const chunksByMessage = new Map<string, { delta: string; idx: number }[]>();
@@ -671,9 +680,20 @@ export const useRoomData = (
       latest: memos.slice(0, 3).map((m) => m.summary),
     };
 
+    const generalThread =
+      threads.find((t) => t.title === "General" || t.title === room?.name) ??
+      threads.find((t) => !latestJobByThread.has(String(t.threadId))) ??
+      undefined;
+
     return {
       agents,
+      generalThread,
       humans,
+      jobs: jobs.map((j) => ({
+        status: j.status,
+        taggedAgent: j.taggedAgent,
+        threadId: j.threadId,
+      })),
       memory,
       merges,
       messages,
@@ -703,6 +723,7 @@ export const useRoomData = (
     roomId,
     myHex,
     ticks,
+    typingIdentities,
   ]);
 };
 
@@ -900,44 +921,167 @@ export const useThreadDetails = (
   ]);
 };
 
+export interface BusyNotice {
+  agentName: string;
+  agentHandle: string;
+  threadId?: bigint;
+  message: string;
+}
+
 export const useSendMessage = (
   roomId: bigint,
-  _thread: Thread | null
+  generalThread: Thread | undefined,
+  agents: Agent[],
+  activeJobs: { taggedAgent?: bigint; status: number; threadId: bigint }[]
 ): {
-  send: (body: string, mentions: bigint[]) => void;
   armNewThread: () => void;
+  busyNotice: BusyNotice | null;
+  clearBusyNotice: () => void;
   newThreadArmed: boolean;
+  send: (body: string, mentions: bigint[]) => void;
 } => {
   const startThread = useReducer(reducers.startThread);
+  const postMessage = useReducer(reducers.postMessage);
 
   const [freshArmed, setFreshArmed] = useState(false);
+  const [busyNotice, setBusyNotice] = useState<BusyNotice | null>(null);
+
+  const clearBusyNotice = useCallback(() => {
+    setBusyNotice(null);
+  }, []);
 
   const send = useCallback(
     (body: string, mentions: bigint[]) => {
+      setBusyNotice(null);
+      const trimmed = body.trim();
+      if (!trimmed) {
+        return;
+      }
+
+      // 1. User mentioned an agent: only mentions spin up an agent thread
+      if (mentions.length > 0) {
+        const [taggedId] = mentions;
+        const taggedAgent = agents.find((a) => a.agentId === taggedId);
+
+        const isBusy =
+          taggedAgent?.presence === "working" ||
+          activeJobs.some(
+            (j) =>
+              j.taggedAgent === taggedId &&
+              (j.status === JobStatus.Running || j.status === JobStatus.Queued)
+          );
+
+        if (isBusy) {
+          const activeJob = activeJobs.find(
+            (j) =>
+              j.taggedAgent === taggedId &&
+              (j.status === JobStatus.Running || j.status === JobStatus.Queued)
+          );
+          const handle = taggedAgent?.handle ?? "agent";
+          setBusyNotice({
+            agentHandle: handle,
+            agentName: taggedAgent?.name ?? "Agent",
+            message: "The agents are busy, you can steer them in thread.",
+            threadId: activeJob?.threadId,
+          });
+          return;
+        }
+
+        // Agent is free -> spin up a new thread with this agent
+        const run = async (): Promise<void> => {
+          try {
+            await startThread({
+              angle: "",
+              prompt: trimmed,
+              roomId,
+              taggedAgent: taggedId,
+              title: trimmed.slice(0, 60),
+            });
+          } catch (error) {
+            console.error("start_thread failed", error);
+          }
+        };
+        void run();
+        setFreshArmed(false);
+        return;
+      }
+
+      // 2. User did not mention any agent
+      // If user explicitly pressed [+] "Start new thread" button
+      if (freshArmed) {
+        const run = async (): Promise<void> => {
+          try {
+            await startThread({
+              angle: "",
+              prompt: trimmed,
+              roomId,
+              taggedAgent: undefined,
+              title: trimmed.slice(0, 60),
+            });
+          } catch (error) {
+            console.error("start_thread failed", error);
+          }
+        };
+        void run();
+        setFreshArmed(false);
+        return;
+      }
+
+      // Post regular room chat message without creating a thread
+      if (generalThread) {
+        const run = async (): Promise<void> => {
+          try {
+            await postMessage({
+              body: trimmed,
+              mentions: [],
+              threadId: generalThread.threadId,
+            });
+          } catch (error) {
+            console.error("post_message failed", error);
+          }
+        };
+        void run();
+        return;
+      }
+
+      // Initialize base general thread if none exists yet
       const run = async (): Promise<void> => {
         try {
           await startThread({
             angle: "",
-            prompt: body,
+            prompt: trimmed,
             roomId,
-            taggedAgent: mentions[0],
-            title: body.slice(0, 60),
+            taggedAgent: undefined,
+            title: "General",
           });
         } catch (error) {
           console.error("start_thread failed", error);
         }
       };
       void run();
-      setFreshArmed(false);
     },
-    [roomId, startThread]
+    [
+      roomId,
+      generalThread,
+      agents,
+      activeJobs,
+      freshArmed,
+      startThread,
+      postMessage,
+    ]
   );
 
   const armNewThread = useCallback(() => {
     setFreshArmed(true);
   }, []);
 
-  return { armNewThread, newThreadArmed: freshArmed, send };
+  return {
+    armNewThread,
+    busyNotice,
+    clearBusyNotice,
+    newThreadArmed: freshArmed,
+    send,
+  };
 };
 
 export const useSteerThread = (
@@ -980,6 +1124,7 @@ export const useMyIdentity = (): { hex: string; identity: Identity | null } => {
 /** The caller's own profile row: live display name + rename. */
 export const useMyProfile = (): {
   displayName: string;
+  identityHex: string;
   online: boolean;
   rename: (name: string) => void;
 } => {
@@ -987,13 +1132,13 @@ export const useMyProfile = (): {
   const { users } = useSharedTables();
   const updateDisplayName = useReducer(reducers.updateDisplayName);
 
+  const hex = identity ? hexOf(identity) : "";
   const me = useMemo(() => {
-    if (!identity) {
+    if (!hex) {
       return;
     }
-    const hex = hexOf(identity);
     return users.find((u) => hexOf(u.identity) === hex);
-  }, [users, identity]);
+  }, [users, hex]);
 
   const rename = useCallback(
     (name: string) => {
@@ -1014,8 +1159,8 @@ export const useMyProfile = (): {
   );
 
   return {
-    displayName:
-      me?.displayName ?? (identity ? `${hexOf(identity).slice(0, 8)}…` : "…"),
+    displayName: me?.displayName ?? (hex ? `${hex.slice(0, 8)}…` : "…"),
+    identityHex: hex,
     online: isActive,
     rename,
   };

@@ -18,12 +18,16 @@ export const ThreadPane = ({
   agents,
   humans,
   onClose,
+  onTyping,
+  onStopTyping,
 }: {
   threadId: bigint;
   roomId: bigint;
   agents: Agent[];
   humans: RoomHuman[];
   onClose: () => void;
+  onTyping?: () => void;
+  onStopTyping?: () => void;
 }) => {
   const { isActive: connected } = useSpacetimeDB();
   const ticks = useStreamTicks();
@@ -142,6 +146,8 @@ export const ThreadPane = ({
           connected={connected}
           variant="thread"
           onSend={(body, mentions) => steer(body, mentions)}
+          onTyping={onTyping}
+          onStopTyping={onStopTyping}
         />
       </div>
     </aside>

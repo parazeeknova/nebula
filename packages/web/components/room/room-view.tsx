@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useSpacetimeDB } from "spacetimedb/react";
 
 import {
+  useMyProfile,
   useRoomData,
   useRoomPresence,
   useSendMessage,
   useStreamTicks,
+  useTypingNotifier,
 } from "@/lib/live";
 
 import { Composer } from "./composer";
@@ -31,10 +33,15 @@ export const RoomView = ({
   const { isActive: connected } = useSpacetimeDB();
   const ticks = useStreamTicks();
   const data = useRoomData(roomId, ticks);
-  const { send, armNewThread, newThreadArmed } = useSendMessage(
+  const me = useMyProfile();
+
+  const { startTyping, stopTyping } = useTypingNotifier(
     roomId,
-    data.thread
+    me.identityHex,
+    me.displayName
   );
+  const { send, armNewThread, newThreadArmed, busyNotice, clearBusyNotice } =
+    useSendMessage(roomId, data.generalThread, data.agents, data.jobs);
   useRoomPresence(roomId, connected && ready);
 
   const [activeThreadId, setActiveThreadId] = useState<bigint | null>(null);
@@ -46,7 +53,7 @@ export const RoomView = ({
   useEffect(() => {
     if (data.threads.length > prevThreadCount.current) {
       const [newest] = data.threads;
-      if (newest) {
+      if (newest && newest.title !== "General") {
         setActiveThreadId(newest.threadId);
       }
     }
@@ -118,6 +125,35 @@ export const RoomView = ({
           <ChatSkeleton roomName={room.name} />
         )}
 
+        {busyNotice && (
+          <div className="border-gold/30 bg-gold/10 text-gold mx-4 mb-2 flex items-center justify-between border px-3 py-2 text-[12.5px]">
+            <div className="flex items-center gap-2">
+              <span aria-hidden>⚠️</span>
+              <span>{busyNotice.message}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {busyNotice.threadId ? (
+                <button
+                  onClick={() => {
+                    setActiveThreadId(busyNotice.threadId ?? null);
+                    clearBusyNotice();
+                  }}
+                  className="cursor-pointer font-semibold underline hover:text-white"
+                >
+                  Open thread →
+                </button>
+              ) : null}
+              <button
+                onClick={clearBusyNotice}
+                className="text-gold/60 hover:text-gold cursor-pointer text-xs"
+                aria-label="Dismiss notice"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         <Composer
           agents={data.agents}
           humans={data.humans}
@@ -125,6 +161,8 @@ export const RoomView = ({
           connected={connected}
           variant="room"
           onSend={send}
+          onTyping={startTyping}
+          onStopTyping={stopTyping}
         />
       </div>
 
@@ -141,6 +179,8 @@ export const RoomView = ({
               roomId={roomId}
               agents={data.agents}
               humans={data.humans}
+              onTyping={startTyping}
+              onStopTyping={stopTyping}
               onClose={() => setActiveThreadId(null)}
             />
           </div>

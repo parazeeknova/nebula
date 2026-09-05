@@ -167,16 +167,25 @@ export const MessageList = ({
       {groups.map((g, gi) => {
         const t = titles.get(String(g.threadId));
         const summary = threadSummaries?.get(String(g.threadId));
+        const isGeneral =
+          t?.title === "General" ||
+          (t?.status === ThreadStatus.Open && (summary?.replyCount ?? 0) === 0);
+        const hasThreadActivity =
+          (summary?.replyCount ?? 0) > 0 || Boolean(summary?.streaming);
         return (
           <div key={`${String(g.threadId)}-${gi}`}>
-            <ThreadDivider
-              title={t?.title ?? "Thread"}
-              status={t?.status ?? ThreadStatus.Open}
-              count={g.items.length}
-            />
+            {!isGeneral && (
+              <ThreadDivider
+                title={t?.title ?? "Thread"}
+                status={t?.status ?? ThreadStatus.Open}
+                count={g.items.length}
+              />
+            )}
             {g.items.map((m, j) => {
               const threadFooter =
-                m.role === 0 && onOpenThread
+                m.role === 0 &&
+                onOpenThread &&
+                (!isGeneral || hasThreadActivity)
                   ? {
                       lastAgentName: summary?.lastAgentName,
                       onOpen: () => onOpenThread(m.threadId),
