@@ -80,7 +80,7 @@ const SynthesisMessage = ({
   agents: Agent[];
 }) => (
   <div className="msg-row px-4 py-2">
-    <div className="border-gold/25 from-gold/[0.08] overflow-hidden border bg-gradient-to-br to-transparent">
+    <div className="border-gold/25 bg-gold/[0.08] overflow-hidden border">
       <div className="border-gold/15 flex items-center gap-2 border-b px-4 py-2">
         <SparkleIcon className="text-gold h-4 w-4" />
         <span className="text-gold font-mono text-[11px] font-bold tracking-[0.12em] uppercase">

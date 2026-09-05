@@ -206,14 +206,7 @@ export const WorkspaceShell = () => {
 
       {/* main canvas */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <main className="grain bg-chat relative min-h-0 min-w-0 flex-1">
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-40"
-            style={{
-              background:
-                "radial-gradient(600px 160px at 30% 0%, rgba(88,101,242,0.12), transparent 70%)",
-            }}
-          />
+        <main className="bg-chat relative min-h-0 min-w-0 flex-1">
           {canvas}
         </main>
       </div>

@@ -117,7 +117,7 @@ export const MessageList = ({
     >
       {/* room intro */}
       <div className="px-4 pt-6 pb-4">
-        <div className="from-blurple font-display shadow-pop grid h-16 w-16 place-items-center bg-gradient-to-br to-[#8b5cf6] text-3xl font-bold text-white ring-1 ring-white/10">
+        <div className="bg-blurple font-display shadow-pop grid h-16 w-16 place-items-center text-3xl font-bold text-white ring-1 ring-white/10">
           {roomName.slice(0, 1).toUpperCase()}
         </div>
         <h2 className="font-display mt-3 text-2xl font-bold tracking-tight text-white">

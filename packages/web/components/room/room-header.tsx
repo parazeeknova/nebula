@@ -33,7 +33,7 @@ export const RoomHeader = ({
     </button>
 
     <span className="flex min-w-0 flex-1 items-center gap-2.5">
-      <span className="from-blurple font-display grid h-7 w-7 shrink-0 place-items-center bg-gradient-to-br to-[#8b5cf6] text-[13px] font-bold text-white">
+      <span className="bg-blurple font-display grid h-7 w-7 shrink-0 place-items-center text-[13px] font-bold text-white">
         {name.slice(0, 1).toUpperCase()}
       </span>
       <h1 className="font-display truncate text-[15px] font-bold tracking-tight text-white">

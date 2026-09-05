@@ -30,8 +30,7 @@ const Avatar = ({
       <span
         className="grid h-full w-full place-items-center font-extrabold text-white select-none"
         style={{
-          background: `linear-gradient(135deg, ${color}, ${color}99)`,
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25)",
+          background: color,
           fontSize: size * 0.34,
         }}
         aria-hidden

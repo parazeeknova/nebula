@@ -12,7 +12,7 @@ export const MergeBanner = ({
   const labels = angles.map((a) => a.label).filter((l) => l.length > 0);
   const detail = labels.length > 0 ? ` — ${labels.join(" × ")}` : "";
   return (
-    <div className="border-blurple/25 from-blurple/15 shrink-0 border-b bg-gradient-to-r via-[#8b5cf6]/10 to-transparent px-4 py-2">
+    <div className="border-blurple/25 bg-blurple/10 shrink-0 border-b px-4 py-2">
       <div className="flex items-center gap-3">
         <span className="relative flex h-2.5 w-2.5 shrink-0">
           <span className="bg-blurple absolute inline-flex h-full w-full animate-ping opacity-60" />

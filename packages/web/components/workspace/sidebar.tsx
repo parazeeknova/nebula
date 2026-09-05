@@ -311,7 +311,7 @@ export const Sidebar = ({
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 py-1 max-md:hidden">
             <span className="relative" title={me.displayName}>
-              <span className="grid h-9 w-9 place-items-center bg-gradient-to-br from-[#5865f2] to-[#00a8fc] text-xs font-extrabold text-white">
+              <span className="bg-blurple grid h-9 w-9 place-items-center text-xs font-extrabold text-white">
                 {initials}
               </span>
               <span
@@ -332,7 +332,7 @@ export const Sidebar = ({
         ) : (
           <div className="flex items-center gap-2 px-1.5 py-1.5">
             <span className="relative shrink-0">
-              <span className="grid h-8 w-8 place-items-center bg-gradient-to-br from-[#5865f2] to-[#00a8fc] text-xs font-extrabold text-white">
+              <span className="bg-blurple grid h-8 w-8 place-items-center text-xs font-extrabold text-white">
                 {initials}
               </span>
               <span
