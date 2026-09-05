@@ -1014,6 +1014,18 @@ export const fail_job = spacetimedb.reducer(
   }
 );
 
+export const recover_stale_jobs = spacetimedb.reducer((ctx) => {
+  requireWorker(ctx);
+  // Single-worker app: any job stuck in "Running" means a previous worker
+  // died mid-flight. Reset them to "Queued" so the next worker picks them up
+  // and the agent never stays busy forever.
+  for (const job of ctx.db.ai_job.iter()) {
+    if (job.status === 1) {
+      ctx.db.ai_job.job_id.update({ ...job, status: 0 });
+    }
+  }
+});
+
 export const log_tool_call = spacetimedb.reducer(
   { input: t.string(), job_id: t.u64(), tool: t.string() },
   (ctx, { job_id, tool, input }) => {

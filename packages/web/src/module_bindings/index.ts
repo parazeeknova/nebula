@@ -57,6 +57,7 @@ import OpenMergeSessionReducer from "./open_merge_session_reducer";
 import PostMessageReducer from "./post_message_reducer";
 import PublishSynthesisReducer from "./publish_synthesis_reducer";
 import PushRoomMemoryReducer from "./push_room_memory_reducer";
+import RecoverStaleJobsReducer from "./recover_stale_jobs_reducer";
 import RegisterAgentReducer from "./register_agent_reducer";
 import RegisterWorkerReducer from "./register_worker_reducer";
 import RemoveAgentFromRoomReducer from "./remove_agent_from_room_reducer";
@@ -397,6 +398,7 @@ const reducersSchema = __reducers(
   __reducerSchema("post_message", PostMessageReducer),
   __reducerSchema("publish_synthesis", PublishSynthesisReducer),
   __reducerSchema("push_room_memory", PushRoomMemoryReducer),
+  __reducerSchema("recover_stale_jobs", RecoverStaleJobsReducer),
   __reducerSchema("register_agent", RegisterAgentReducer),
   __reducerSchema("register_worker", RegisterWorkerReducer),
   __reducerSchema("remove_agent_from_room", RemoveAgentFromRoomReducer),

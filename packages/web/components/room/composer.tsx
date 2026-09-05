@@ -23,9 +23,21 @@ interface Props {
 interface ModelOption {
   id: string;
   label: string;
+  provider?: string;
 }
 
 const DEFAULT_MODEL = "gpt-oss-120b";
+
+const formatRef = (ref: string): { label: string; provider?: string } => {
+  const sep = ref.indexOf("::");
+  if (sep !== -1) {
+    return {
+      label: ref.slice(sep + 2),
+      provider: ref.slice(0, sep),
+    };
+  }
+  return { label: ref };
+};
 
 const ModelDropdown = ({
   value,
@@ -62,7 +74,8 @@ const ModelDropdown = ({
             continue;
           }
           seen.add(id);
-          opts.push({ id, label: id });
+          const { label, provider } = formatRef(id);
+          opts.push({ id, label, provider });
         }
         setModels(opts);
         const [first] = opts;
@@ -134,7 +147,14 @@ const ModelDropdown = ({
               : "text-ink-dim hover:bg-white/[0.06]"
           }`}
         >
-          <span className="truncate font-mono text-[12px]">{m.label}</span>
+          <span className="min-w-0 flex-1 truncate font-mono text-[12px]">
+            {m.label}
+          </span>
+          {m.provider && (
+            <span className="bg-blurple-soft shrink-0 px-1.5 py-px font-mono text-[9px] font-semibold text-[#8b9bff] uppercase">
+              {m.provider}
+            </span>
+          )}
           {m.id === value && (
             <span className="bg-blurple h-1.5 w-1.5 shrink-0" />
           )}
@@ -154,7 +174,9 @@ const ModelDropdown = ({
         title="Model for this message"
       >
         <SparkleIcon className="h-3 w-3 shrink-0 text-[#8b9bff]" />
-        <span className="truncate">{value || DEFAULT_MODEL}</span>
+        <span className="truncate">
+          {formatRef(value || DEFAULT_MODEL).label}
+        </span>
         <ChevronDownIcon className="h-3 w-3 shrink-0" />
       </button>
 

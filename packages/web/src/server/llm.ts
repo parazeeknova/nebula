@@ -4,26 +4,105 @@ import { OpenAI } from "openai";
 
 import { config } from "./config";
 
+type ProviderName = "generalcompute" | "openai";
+
+interface ProviderConfig {
+  name: ProviderName;
+  label: string;
+  apiKey: string;
+  baseUrl: string;
+}
+
+/** Enabled providers (those with a configured API key). */
+const PROVIDERS: ProviderConfig[] = [
+  {
+    apiKey: config.generalComputeApiKey,
+    baseUrl: config.generalComputeBaseUrl,
+    label: "GeneralCompute",
+    name: "generalcompute" as const,
+  },
+  {
+    apiKey: config.openaiApiKey,
+    baseUrl: config.openaiBaseUrl,
+    label: "OpenAI",
+    name: "openai" as const,
+  },
+].filter((p) => p.apiKey.length > 0);
+
+const providerByName = (name: ProviderName): ProviderConfig => {
+  const provider = PROVIDERS.find((p) => p.name === name);
+  if (!provider) {
+    throw new Error(`model provider not configured: ${name}`);
+  }
+  return provider;
+};
+
+/**
+ * A model reference is `provider::model` (e.g. `openai::gpt-5-nano`).
+ * Bare ids default to the GeneralCompute provider for backward compatibility.
+ */
+export const parseModelRef = (
+  ref: string
+): { model: string; provider: ProviderName } => {
+  const sep = ref.indexOf("::");
+  if (sep !== -1) {
+    const prefix = ref.slice(0, sep);
+    if (prefix === "generalcompute" || prefix === "openai") {
+      return { model: ref.slice(sep + 2), provider: prefix };
+    }
+  }
+  return { model: ref, provider: "generalcompute" };
+};
+
 /** Per-job model override, scoped so nested/parallel agent calls inherit it. */
 const modelContext = new AsyncLocalStorage<string>();
 
 export const withModel = <T>(model: string | undefined, fn: () => T): T =>
   modelContext.run(model ?? "", fn);
 
-let client: OpenAI | null = null;
+const clients = new Map<ProviderName, OpenAI>();
 
-export const getLlmClient = (): OpenAI => {
-  if (!config.generalComputeApiKey) {
-    throw new Error("GENERALCOMPUTE_API_KEY is not set");
+const getClient = (provider: ProviderName): OpenAI => {
+  const cached = clients.get(provider);
+  if (cached) {
+    return cached;
   }
-  if (!client) {
-    client = new OpenAI({
-      apiKey: config.generalComputeApiKey,
-      baseURL: config.generalComputeBaseUrl,
-      timeout: config.llmTimeoutMs,
-    });
-  }
+  const cfg = providerByName(provider);
+  const client = new OpenAI({
+    apiKey: cfg.apiKey,
+    baseURL: cfg.baseUrl,
+    timeout: config.llmTimeoutMs,
+  });
+  clients.set(provider, client);
   return client;
+};
+
+/** GeneralCompute client (kept for callers that only target that provider). */
+export const getLlmClient = (): OpenAI => getClient("generalcompute");
+
+/**
+ * List model ids across all enabled providers, each qualified as
+ * `provider::model`.
+ */
+export const listProviderModels = async (): Promise<{ models: string[] }> => {
+  const models: string[] = [];
+  for (const provider of PROVIDERS) {
+    try {
+      // eslint-disable-next-line no-await-in-loop -- providers are queried one at a time so a single failure never aborts the rest
+      const { data } = await getClient(provider.name).models.list();
+      for (const m of data) {
+        if (typeof m.id === "string" && m.id.length > 0) {
+          models.push(`${provider.name}::${m.id}`);
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[llm] failed to list models for ${provider.name}: ${message.slice(0, 160)}`
+      );
+    }
+  }
+  return { models };
 };
 
 export const resolveModels = (primary: string, fallback: string): string[] => {
@@ -52,12 +131,13 @@ const extractJson = (raw: string): unknown => {
 };
 
 const requestChat = async (
-  model: string,
+  modelRef: string,
   system: string,
   user: string,
   useJsonMode: boolean
 ): Promise<string> => {
-  const llm = getLlmClient();
+  const { model, provider } = parseModelRef(modelRef);
+  const llm = getClient(provider);
   const response = await llm.chat.completions.create({
     messages: [
       { content: system, role: "system" },

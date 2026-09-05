@@ -475,6 +475,12 @@ const main = async (): Promise<void> => {
   } catch (error) {
     log(`register_worker: ${errMsg(error)}`);
   }
+  try {
+    await conn.reducers.recoverStaleJobs({});
+    log("recovered stale jobs left by a previous worker");
+  } catch (error) {
+    log(`recover_stale_jobs: ${errMsg(error)}`);
+  }
   await subscribeOnce(conn, [
     "SELECT * FROM ai_job",
     "SELECT * FROM agent",
