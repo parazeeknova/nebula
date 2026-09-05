@@ -12,7 +12,8 @@ const withTargets = (command) => (files) => {
 };
 
 export default {
-  "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}": [
+  "*.{json,jsonc}": [withTargets("oxfmt")],
+  "*.{ts,tsx,js,jsx,mjs,cjs}": [
     withTargets("oxfmt"),
     withTargets("oxlint --fix"),
   ],
