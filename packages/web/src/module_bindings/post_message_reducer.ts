@@ -13,5 +13,6 @@ import {
 export default {
   body: __t.string(),
   mentions: __t.array(__t.u64()),
+  model: __t.option(__t.string()),
   threadId: __t.u64(),
 };

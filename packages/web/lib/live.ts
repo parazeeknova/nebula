@@ -1049,7 +1049,7 @@ export const useSendMessage = (
   busyNotice: BusyNotice | null;
   clearBusyNotice: () => void;
   newThreadArmed: boolean;
-  send: (body: string, mentions: bigint[]) => void;
+  send: (body: string, mentions: bigint[], model?: string) => void;
 } => {
   const startThread = useReducer(reducers.startThread);
   const postMessage = useReducer(reducers.postMessage);
@@ -1062,7 +1062,7 @@ export const useSendMessage = (
   }, []);
 
   const send = useCallback(
-    (body: string, mentions: bigint[]) => {
+    (body: string, mentions: bigint[], model?: string) => {
       setBusyNotice(null);
       const trimmed = body.trim();
       if (!trimmed) {
@@ -1103,6 +1103,7 @@ export const useSendMessage = (
           try {
             await startThread({
               angle: "",
+              model,
               prompt: trimmed,
               roomId,
               taggedAgent: taggedId,
@@ -1124,6 +1125,7 @@ export const useSendMessage = (
           try {
             await startThread({
               angle: "",
+              model,
               prompt: trimmed,
               roomId,
               taggedAgent: undefined,
@@ -1145,6 +1147,7 @@ export const useSendMessage = (
             await postMessage({
               body: trimmed,
               mentions: [],
+              model,
               threadId: generalThread.threadId,
             });
           } catch (error) {
@@ -1160,6 +1163,7 @@ export const useSendMessage = (
         try {
           await startThread({
             angle: "",
+            model,
             prompt: trimmed,
             roomId,
             taggedAgent: undefined,
@@ -1197,10 +1201,10 @@ export const useSendMessage = (
 
 export const useSteerThread = (
   threadId: bigint | null
-): ((body: string, mentions: bigint[]) => void) => {
+): ((body: string, mentions: bigint[], model?: string) => void) => {
   const postMessage = useReducer(reducers.postMessage);
   return useCallback(
-    (body: string, mentions: bigint[]) => {
+    (body: string, mentions: bigint[], model?: string) => {
       if (threadId === null) {
         return;
       }
@@ -1209,6 +1213,7 @@ export const useSteerThread = (
           await postMessage({
             body,
             mentions,
+            model,
             threadId,
           });
         } catch (error) {

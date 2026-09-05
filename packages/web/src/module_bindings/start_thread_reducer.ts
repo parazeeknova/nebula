@@ -12,6 +12,7 @@ import {
 
 export default {
   angle: __t.string(),
+  model: __t.option(__t.string()),
   prompt: __t.string(),
   roomId: __t.u64(),
   taggedAgent: __t.option(__t.u64()),

@@ -15,6 +15,7 @@ export default __t.row({
   createdAt: __t.timestamp().name("created_at"),
   createdBy: __t.identity().name("created_by"),
   jobId: __t.u64().primaryKey().name("job_id"),
+  model: __t.option(__t.string()),
   prompt: __t.string(),
   roomId: __t.u64().name("room_id"),
   status: __t.u8(),

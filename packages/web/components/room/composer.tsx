@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 
 import type { Agent, RoomHuman } from "@/lib/room-types";
 
-import { PlusIcon, SendIcon } from "../icons";
+import { ChevronDownIcon, PlusIcon, SendIcon, SparkleIcon } from "../icons";
 import { Avatar } from "./avatar";
 
 interface Props {
@@ -14,10 +14,166 @@ interface Props {
   typingNames: string[];
   connected: boolean;
   variant?: "room" | "thread";
-  onSend: (body: string, mentions: bigint[]) => void;
+  onSend: (body: string, mentions: bigint[], model?: string) => void;
   onTyping?: () => void;
   onStopTyping?: () => void;
 }
+
+interface ModelOption {
+  id: string;
+  label: string;
+}
+
+const DEFAULT_MODEL = "gpt-oss-120b";
+
+const ModelDropdown = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (model: string) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async (): Promise<void> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/models");
+        if (!res.ok) {
+          throw new Error(`models request failed (${res.status})`);
+        }
+        const data = (await res.json()) as { models?: string[] };
+        if (cancelled) {
+          return;
+        }
+        const ids = Array.isArray(data.models) ? data.models : [];
+        const seen = new Set<string>();
+        const opts: ModelOption[] = [];
+        for (const id of ids) {
+          if (typeof id !== "string" || seen.has(id)) {
+            continue;
+          }
+          seen.add(id);
+          opts.push({ id, label: id });
+        }
+        setModels(opts);
+        const [first] = opts;
+        if (
+          opts.length > 0 &&
+          first !== undefined &&
+          !opts.some((o) => o.id === value)
+        ) {
+          onChange(first.id);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "failed to load models"
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only load on mount
+  }, []);
+
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent): void => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
+  let body: ReactNode;
+  if (loading) {
+    body = (
+      <li className="text-ink-faint px-2 py-2 text-[12px]">Loading models…</li>
+    );
+  } else if (error) {
+    body = <li className="px-2 py-2 text-[12px] text-[#ff8a8d]">{error}</li>;
+  } else if (models.length === 0) {
+    body = (
+      <li className="text-ink-faint px-2 py-2 text-[12px]">
+        No models available
+      </li>
+    );
+  } else {
+    body = models.map((m) => (
+      <li key={m.id}>
+        <button
+          type="button"
+          role="option"
+          aria-selected={m.id === value}
+          onClick={() => {
+            onChange(m.id);
+            setOpen(false);
+          }}
+          className={`flex w-full items-center justify-between gap-2 px-2 py-1.5 text-left transition ${
+            m.id === value
+              ? "bg-blurple/15 text-ink"
+              : "text-ink-dim hover:bg-white/[0.06]"
+          }`}
+        >
+          <span className="truncate font-mono text-[12px]">{m.label}</span>
+          {m.id === value && (
+            <span className="bg-blurple h-1.5 w-1.5 shrink-0" />
+          )}
+        </button>
+      </li>
+    ));
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="text-ink-dim hover:text-ink inline-flex max-w-[200px] items-center gap-1.5 bg-white/[0.04] px-2 py-1 font-mono text-[11px] font-medium ring-1 ring-white/[0.08] transition hover:bg-white/[0.08]"
+        title="Model for this message"
+      >
+        <SparkleIcon className="h-3 w-3 shrink-0 text-[#8b9bff]" />
+        <span className="truncate">{value || DEFAULT_MODEL}</span>
+        <ChevronDownIcon className="h-3 w-3 shrink-0" />
+      </button>
+
+      {open && (
+        <div className="bg-panel-2 shadow-pop absolute bottom-full left-0 z-30 mb-2 w-64 overflow-hidden border border-white/10">
+          <p className="text-ink-faint border-b border-white/[0.06] px-3 py-2 font-mono text-[10px] font-bold tracking-[0.12em] uppercase">
+            Model
+          </p>
+          <ul
+            role="listbox"
+            aria-label="Select model"
+            className="max-h-60 overflow-y-auto p-1.5"
+          >
+            {body}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const Composer = ({
   agents,
@@ -32,6 +188,7 @@ export const Composer = ({
   const [value, setValue] = useState("");
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
+  const [model, setModel] = useState(DEFAULT_MODEL);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   const candidates = useMemo(() => {
@@ -113,7 +270,7 @@ export const Composer = ({
     const mentions = agents
       .filter((a) => mentionedHandles.has(a.handle.toLowerCase()))
       .map((a) => a.agentId);
-    onSend(body, mentions);
+    onSend(body, mentions, model);
     setValue("");
     setMentionOpen(false);
     if (taRef.current) {
@@ -185,6 +342,13 @@ export const Composer = ({
             </ul>
           </div>
         )}
+
+        <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
+          <ModelDropdown value={model} onChange={setModel} />
+          <span className="text-ink-ghost truncate font-mono text-[10px]">
+            {variant === "thread" ? "steer model" : "room model"}
+          </span>
+        </div>
 
         <form
           onSubmit={submit}

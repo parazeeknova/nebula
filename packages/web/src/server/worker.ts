@@ -21,6 +21,7 @@ import {
   pullRoomMemory,
   recordMessages,
 } from "./honcho";
+import { withModel } from "./llm";
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -429,13 +430,15 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
       });
     }
 
-    const answer = await produceAnswer(
-      conn,
-      messageId,
-      job.jobId,
-      job.prompt,
-      route,
-      memory
+    const answer = await withModel(job.model, () =>
+      produceAnswer(
+        conn,
+        messageId as bigint,
+        job.jobId,
+        job.prompt,
+        route,
+        memory
+      )
     );
     await streamAnswer(conn, messageId, answer);
     await conn.reducers.completeJob({

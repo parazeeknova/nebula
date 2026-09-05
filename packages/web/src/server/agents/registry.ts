@@ -17,11 +17,9 @@ export const AGENTS = {
 } as const;
 
 export type AgentName = keyof typeof AGENTS;
-
-/** Orchestrator dispatch for the shared "Neb" agent (routes to specialists). */
 export type AgentRoute = AgentName | "orchestrator";
 
-// Canonical execution order. Kept separate from AGENTS key order on purpose.
+// Canonic`al execution order. Kept separate from AGENTS key order on purpose.
 export const AGENT_NAMES: AgentName[] = ["web", "market", "evaluation"];
 
 export const isAgentName = (value: unknown): value is AgentName =>

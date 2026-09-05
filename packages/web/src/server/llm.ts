@@ -1,6 +1,14 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 import { OpenAI } from "openai";
 
 import { config } from "./config";
+
+/** Per-job model override, scoped so nested/parallel agent calls inherit it. */
+const modelContext = new AsyncLocalStorage<string>();
+
+export const withModel = <T>(model: string | undefined, fn: () => T): T =>
+  modelContext.run(model ?? "", fn);
 
 let client: OpenAI | null = null;
 
@@ -65,8 +73,16 @@ const requestChat = async (
   return content;
 };
 
-export const chatJson = async <T>(system: string, user: string): Promise<T> => {
-  const models = resolveModels(config.model, config.fallbackModel);
+export const chatJson = async <T>(
+  system: string,
+  user: string,
+  options?: { model?: string }
+): Promise<T> => {
+  const scoped = modelContext.getStore();
+  const models =
+    options?.model || scoped
+      ? resolveModels(options?.model || scoped || "", config.fallbackModel)
+      : resolveModels(config.model, config.fallbackModel);
   const failures: string[] = [];
   for (const useJsonMode of [true, false]) {
     for (const model of models) {

@@ -170,6 +170,7 @@ const ai_job = table(
     created_at: t.timestamp(),
     created_by: t.identity(),
     job_id: t.u64().primaryKey().autoInc(),
+    model: t.option(t.string()),
     prompt: t.string(),
     room_id: t.u64().index("btree"),
     status: t.u8(),
@@ -755,6 +756,7 @@ const threadAgentTag = (ctx: Ctx, thread_id: bigint): bigint | undefined => {
 export const start_thread = spacetimedb.reducer(
   {
     angle: t.string(),
+    model: t.option(t.string()),
     prompt: t.string(),
     room_id: t.u64(),
     tagged_agent: t.option(t.u64()),
@@ -795,6 +797,7 @@ export const start_thread = spacetimedb.reducer(
         created_at: ctx.timestamp,
         created_by: ctx.sender,
         job_id: 0n,
+        model: a.model?.trim() ? a.model.trim().slice(0, 128) : undefined,
         prompt,
         room_id: a.room_id,
         status: 0,
@@ -809,6 +812,7 @@ export const post_message = spacetimedb.reducer(
   {
     body: t.string(),
     mentions: t.array(t.u64()),
+    model: t.option(t.string()),
     thread_id: t.u64(),
   },
   (ctx, a) => {
@@ -851,6 +855,7 @@ export const post_message = spacetimedb.reducer(
         created_at: ctx.timestamp,
         created_by: ctx.sender,
         job_id: 0n,
+        model: a.model?.trim() ? a.model.trim().slice(0, 128) : undefined,
         prompt: body,
         room_id: th.room_id,
         status: 0,
