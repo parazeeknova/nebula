@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+dist
+*.log
+
+.DS_Store
+
+spacetime.local.json
+
+# env files (never commit secrets)
+.env
+.env*.local
+.env.local
