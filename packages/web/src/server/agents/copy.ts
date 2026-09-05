@@ -1,19 +1,24 @@
-import { chatJson } from "../llm";
-import { copySystem, memoryBlock } from "./prompts";
-import type { CopyOutput, TaskContext } from "./types";
+import { copySystem } from "./prompts";
+import { runAgent, toStatus } from "./runner";
+import type { CopyOutput } from "./types";
 
-export const runCopy = (
+export const runCopy = async (
   task: string,
-  context?: TaskContext,
-  memory?: string
+  _context?: unknown,
+  memory?: string,
+  model?: string
 ): Promise<CopyOutput> => {
-  const parts = [`Task: ${task}`];
-  if (context?.industry) {
-    parts.push(`Stated industry/domain: ${context.industry}`);
-  }
-  const mem = memoryBlock(memory);
-  if (mem) {
-    parts.push(mem.trim());
-  }
-  return chatJson<CopyOutput>(copySystem(), parts.join("\n\n"));
+  const raw = await runAgent<CopyOutput>(
+    "copy",
+    { maxSteps: 4, system: copySystem(), tools: [] },
+    task,
+    { memory, model }
+  );
+  return {
+    audience: typeof raw.audience === "string" ? raw.audience : "",
+    draft: typeof raw.draft === "string" ? raw.draft : "",
+    status: toStatus(raw.status),
+    tone: typeof raw.tone === "string" ? raw.tone : "",
+    variants: Array.isArray(raw.variants) ? raw.variants : [],
+  };
 };

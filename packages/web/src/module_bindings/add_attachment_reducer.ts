@@ -10,16 +10,8 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-import {
-  ImageUpload,
-} from "./types";
-
 export default {
-  body: __t.string(),
-  get images() {
-    return __t.array(ImageUpload);
-  },
-  mentions: __t.array(__t.u64()),
-  model: __t.option(__t.string()),
-  threadId: __t.u64(),
+  data: __t.string(),
+  messageId: __t.u64(),
+  mime: __t.string(),
 };

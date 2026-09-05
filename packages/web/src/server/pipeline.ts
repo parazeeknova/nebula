@@ -112,13 +112,10 @@ const runSingleAgent = (
   if (agent === "support") {
     return runSupport(planned.task, planned.context, memory);
   }
-  return runEvaluation(
-    planned.task,
-    planned.context,
-    results.web_result ?? undefined,
-    results.market_result ?? undefined,
-    memory
-  );
+  return runEvaluation(planned.task, planned.context, {
+    market_analysis: results.market_result ?? undefined,
+    web_research: results.web_result ?? undefined,
+  });
 };
 
 const storeResult = (
@@ -227,13 +224,10 @@ const executeFullInvestigation = async (
     evaluationOrder,
     { context: evaluationPlanned.context, task: evaluationPlanned.task },
     () =>
-      runEvaluation(
-        evaluationPlanned.task,
-        evaluationPlanned.context,
-        results.web_result ?? undefined,
-        results.market_result ?? undefined,
-        memory
-      )
+      runEvaluation(evaluationPlanned.task, evaluationPlanned.context, {
+        market_analysis: results.market_result ?? undefined,
+        web_research: results.web_result ?? undefined,
+      })
   );
   storeResult(results, "evaluation", evaluationOutput);
   return results;

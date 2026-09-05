@@ -69,6 +69,7 @@ export const MessageList = ({
   agents,
   roomName,
   threadSummaries,
+  firstUnreadId,
   onOpenThread,
 }: {
   messages: ChatMessage[];
@@ -76,6 +77,7 @@ export const MessageList = ({
   agents: Agent[];
   roomName: string;
   threadSummaries?: Map<string, ThreadView>;
+  firstUnreadId?: bigint | null;
   onOpenThread?: (threadId: bigint) => void;
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -157,7 +159,7 @@ export const MessageList = ({
           <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
             @res
           </span>{" "}
-          searches,{" "}
+          researches,{" "}
           <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
             @mkt
           </span>{" "}
@@ -165,7 +167,23 @@ export const MessageList = ({
           <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
             @eval
           </span>{" "}
-          decides. Memory compounds across every thread.
+          decides,{" "}
+          <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
+            @code
+          </span>{" "}
+          builds,{" "}
+          <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
+            @copy
+          </span>{" "}
+          writes,{" "}
+          <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
+            @pm
+          </span>{" "}
+          specs,{" "}
+          <span className="bg-blurple-soft px-1 font-semibold text-[#c3cbff]">
+            @sup
+          </span>{" "}
+          helps. Memory compounds across every thread.
         </p>
       </div>
 
@@ -197,14 +215,28 @@ export const MessageList = ({
                       streaming: summary?.streaming,
                     }
                   : undefined;
+              const isFirstUnread =
+                firstUnreadId !== null &&
+                firstUnreadId !== undefined &&
+                m.messageId === firstUnreadId;
               return (
-                <MessageItem
-                  key={String(m.messageId)}
-                  msg={m}
-                  agents={agents}
-                  compact={isCompact(m, g.items[j - 1])}
-                  threadFooter={threadFooter}
-                />
+                <div key={String(m.messageId)}>
+                  {isFirstUnread && (
+                    <div className="flex items-center gap-3 px-4 py-1">
+                      <span className="bg-blurple/40 h-px flex-1" />
+                      <span className="font-mono text-[10px] font-bold tracking-[0.14em] text-[#8b9bff] uppercase">
+                        New messages
+                      </span>
+                      <span className="bg-blurple/40 h-px flex-1" />
+                    </div>
+                  )}
+                  <MessageItem
+                    msg={m}
+                    agents={agents}
+                    compact={isCompact(m, g.items[j - 1])}
+                    threadFooter={threadFooter}
+                  />
+                </div>
               );
             })}
           </div>

@@ -1,19 +1,23 @@
-import { chatJson } from "../llm";
-import { memoryBlock, supportSystem } from "./prompts";
-import type { SupportOutput, TaskContext } from "./types";
+import { supportSystem } from "./prompts";
+import { runAgent, toStatus } from "./runner";
+import type { SupportOutput } from "./types";
 
-export const runSupport = (
+export const runSupport = async (
   task: string,
-  context?: TaskContext,
-  memory?: string
+  _context?: unknown,
+  memory?: string,
+  model?: string
 ): Promise<SupportOutput> => {
-  const parts = [`Task: ${task}`];
-  if (context?.industry) {
-    parts.push(`Stated industry/domain: ${context.industry}`);
-  }
-  const mem = memoryBlock(memory);
-  if (mem) {
-    parts.push(mem.trim());
-  }
-  return chatJson<SupportOutput>(supportSystem(), parts.join("\n\n"));
+  const raw = await runAgent<SupportOutput>(
+    "support",
+    { maxSteps: 4, system: supportSystem(), tools: [] },
+    task,
+    { memory, model }
+  );
+  return {
+    answer: typeof raw.answer === "string" ? raw.answer : "",
+    category: typeof raw.category === "string" ? raw.category : "",
+    next_steps: Array.isArray(raw.next_steps) ? raw.next_steps : [],
+    status: toStatus(raw.status),
+  };
 };

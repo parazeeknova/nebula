@@ -1,19 +1,27 @@
-import { chatJson } from "../llm";
-import { memoryBlock, productSystem } from "./prompts";
-import type { ProductOutput, TaskContext } from "./types";
+import { productSystem } from "./prompts";
+import { runAgent, toStatus } from "./runner";
+import type { ProductOutput } from "./types";
 
-export const runProduct = (
+export const runProduct = async (
   task: string,
-  context?: TaskContext,
-  memory?: string
+  _context?: unknown,
+  memory?: string,
+  model?: string
 ): Promise<ProductOutput> => {
-  const parts = [`Task: ${task}`];
-  if (context?.industry) {
-    parts.push(`Stated industry/domain: ${context.industry}`);
-  }
-  const mem = memoryBlock(memory);
-  if (mem) {
-    parts.push(mem.trim());
-  }
-  return chatJson<ProductOutput>(productSystem(), parts.join("\n\n"));
+  const raw = await runAgent<ProductOutput>(
+    "pm",
+    { maxSteps: 4, system: productSystem(), tools: [] },
+    task,
+    { memory, model }
+  );
+  return {
+    acceptance_criteria: Array.isArray(raw.acceptance_criteria)
+      ? raw.acceptance_criteria
+      : [],
+    assumptions: Array.isArray(raw.assumptions) ? raw.assumptions : [],
+    priority: typeof raw.priority === "string" ? raw.priority : "medium",
+    requirements: Array.isArray(raw.requirements) ? raw.requirements : [],
+    status: toStatus(raw.status),
+    user_stories: Array.isArray(raw.user_stories) ? raw.user_stories : [],
+  };
 };

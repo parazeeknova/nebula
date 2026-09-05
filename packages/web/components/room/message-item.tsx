@@ -15,6 +15,30 @@ const TOOL_STYLE: Record<number, string> = {
 };
 const TOOL_LABEL = ["pending", "running", "done", "failed"] as const;
 
+const ImageGrid = ({
+  images,
+  compact = false,
+}: {
+  images: { data: string; mime: string }[];
+  compact?: boolean;
+}) => (
+  <div className={`flex flex-wrap ${compact ? "gap-1.5 pb-1" : "gap-2"}`}>
+    {images.map((img, i) => (
+      // oxlint-disable-next-line @next/next/no-img-element
+      <img
+        key={i}
+        src={`data:${img.mime};base64,${img.data}`}
+        alt=""
+        className={
+          compact
+            ? "h-14 w-14 rounded border border-white/10 object-cover"
+            : "max-h-56 w-auto max-w-full rounded border border-white/10 object-contain"
+        }
+      />
+    ))}
+  </div>
+);
+
 const StreamingTail = () => (
   <span
     className="ml-2 inline-flex translate-y-[3px] items-center gap-1"
@@ -173,6 +197,8 @@ const ThreadFooterButton = ({ info }: { info: ThreadFooterInfo }) => (
   </div>
 );
 
+// eslint-disable-next-line eslint-comments/require-description -- multiple conditional render branches
+// oxlint-disable-next-line eslint/complexity
 export const MessageItem = ({
   msg,
   agents,
@@ -198,6 +224,9 @@ export const MessageItem = ({
   if (compact) {
     return (
       <div className="msg-row group px-4 py-[3px] pl-[68px]">
+        {msg.images && msg.images.length > 0 && (
+          <ImageGrid images={msg.images} compact />
+        )}
         <p className="text-ink/90 text-[14px] leading-relaxed break-words">
           {renderBody(text, agents)}
           {msg.streaming && <StreamingTail />}
@@ -262,6 +291,12 @@ export const MessageItem = ({
         )}
 
         <MemoryIndicator msg={msg} />
+
+        {msg.images && msg.images.length > 0 && (
+          <div className="mt-2">
+            <ImageGrid images={msg.images} />
+          </div>
+        )}
 
         <p className="text-ink/90 mt-0.5 text-[14px] leading-relaxed break-words whitespace-pre-wrap">
           {renderBody(text, agents)}

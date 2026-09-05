@@ -385,6 +385,33 @@ export const useRoomPresence = (roomId: bigint, enabled: boolean): void => {
 };
 
 /**
+ * Mark the current room as read once it becomes active and has finished
+ * loading, so the unread divider clears for the viewer.
+ */
+export const useMarkRoomRead = (
+  roomId: bigint,
+  enabled: boolean,
+  ready: boolean
+): void => {
+  const markRoomRead = useReducer(reducers.markRoomRead);
+  useEffect(() => {
+    if (!enabled || !ready) {
+      return;
+    }
+    const t = setTimeout(() => {
+      try {
+        void markRoomRead({ roomId });
+      } catch (error) {
+        console.error("mark_room_read failed", error);
+      }
+    }, 600);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [roomId, enabled, ready, markRoomRead]);
+};
+
+/**
  * Read a `?room=<id>` invite link from the URL. On first mount, the
  * guest is joined to that room (idempotent) and the id is returned so
  * the shell can select it. Returns null when there is no invite.
@@ -466,6 +493,8 @@ export interface RoomData {
   merges: MergeInfo[];
   memory: { count: number; latest: string[] };
   jobs: { taggedAgent?: bigint; status: number; threadId: bigint }[];
+  /** Id of the first message not yet read by this user, if any. */
+  firstUnreadId: bigint | null;
   ready: boolean;
 }
 
@@ -688,7 +717,8 @@ const buildChatMessages = (
   latestJobByThread: Map<string, { jobId: bigint; status: number }>,
   toolsByThread: Map<string, ToolEntry[]>,
   chunksByMessage: Map<string, { delta: string; idx: number }[]>,
-  ticks: ReadonlyMap<string, StreamTick[]>
+  ticks: ReadonlyMap<string, StreamTick[]>,
+  attachmentsByMessage: Map<string, { data: string; mime: string }[]>
 ): ChatMessage[] =>
   messageRows
     .toSorted((a, b) => (a.messageId < b.messageId ? -1 : 1))
@@ -726,6 +756,7 @@ const buildChatMessages = (
           .map((c) => ({ delta: c.delta, idx: c.idx })),
         createdAt: timeLabel(m.createdAt),
         createdAtMicros: m.createdAt.microsSinceUnixEpoch,
+        images: attachmentsByMessage.get(String(m.messageId)),
         jobStatus: job?.status,
         mentions: [...m.mentions],
         messageId: m.messageId,
@@ -778,6 +809,37 @@ const buildRoomAgents = (
     });
 };
 
+/**
+ * Resolve the viewer's read cursor for a room, then the first unread message
+ * id. Returns null when nothing is unread or no marker exists yet.
+ */
+const firstUnreadIn = (
+  messages: readonly { messageId: bigint }[],
+  readStateRows: readonly {
+    identity: Identity;
+    lastReadMessageId: bigint;
+    roomId: bigint;
+  }[],
+  roomId: bigint,
+  myHex: string
+): bigint | null => {
+  let lastRead = 0n;
+  for (const r of readStateRows) {
+    if (
+      r.roomId === roomId &&
+      r.identity.toHexString() === myHex &&
+      r.lastReadMessageId > lastRead
+    ) {
+      lastRead = r.lastReadMessageId;
+    }
+  }
+  if (lastRead === 0n) {
+    return null;
+  }
+  const next = messages.find((m) => m.messageId > lastRead);
+  return next ? next.messageId : null;
+};
+
 export const useRoomData = (
   roomId: bigint,
   ticks: ReadonlyMap<string, StreamTick[]>
@@ -786,10 +848,12 @@ export const useRoomData = (
   const myHex = identity ? hexOf(identity) : "";
   const {
     agents: agentRows,
+    attachments: attachmentRows,
     chunks: chunkRows,
     explorations: explorationRows,
     memories: memoryRows,
     presences: presenceRows,
+    roomReadStates: readStateRows,
     toolCalls: toolRows,
     users: userRows,
   } = useSharedTables();
@@ -892,6 +956,17 @@ export const useRoomData = (
       agentsById
     );
 
+    const attachmentsByMessage = new Map<
+      string,
+      { data: string; mime: string }[]
+    >();
+    for (const att of attachmentRows) {
+      const key = String(att.messageId);
+      const list = attachmentsByMessage.get(key) ?? [];
+      list.push({ data: att.data, mime: att.mime });
+      attachmentsByMessage.set(key, list);
+    }
+
     const messages = buildChatMessages(
       messageRows,
       agentsById,
@@ -899,8 +974,12 @@ export const useRoomData = (
       latestJobByThread,
       toolsByThread,
       chunksByMessage,
-      ticks
+      ticks,
+      attachmentsByMessage
     );
+
+    // Read cursor for this user in this room, if recorded.
+    const firstUnreadId = firstUnreadIn(messages, readStateRows, roomId, myHex);
 
     const explorationsBySession = new Map<
       string,
@@ -937,6 +1016,7 @@ export const useRoomData = (
 
     return {
       agents,
+      firstUnreadId,
       generalThread,
       humans,
       jobs: jobs.map((j) => ({
@@ -961,6 +1041,7 @@ export const useRoomData = (
     messageRows,
     chunkRows,
     agentRows,
+    attachmentRows,
     roomAgentRows,
     roomHumanRows,
     userRows,
@@ -970,6 +1051,7 @@ export const useRoomData = (
     sessionRows,
     explorationRows,
     memoryRows,
+    readStateRows,
     roomId,
     myHex,
     ticks,
@@ -1223,6 +1305,11 @@ export interface BusyNotice {
   message: string;
 }
 
+export interface ImageUpload {
+  data: string;
+  mime: string;
+}
+
 export const useSendMessage = (
   roomId: bigint,
   generalThread: Thread | undefined,
@@ -1233,7 +1320,12 @@ export const useSendMessage = (
   busyNotice: BusyNotice | null;
   clearBusyNotice: () => void;
   newThreadArmed: boolean;
-  send: (body: string, mentions: bigint[], model?: string) => void;
+  send: (
+    body: string,
+    mentions: bigint[],
+    model?: string,
+    images?: ImageUpload[]
+  ) => void;
 } => {
   const startThread = useReducer(reducers.startThread);
   const postMessage = useReducer(reducers.postMessage);
@@ -1246,12 +1338,21 @@ export const useSendMessage = (
   }, []);
 
   const send = useCallback(
-    (body: string, mentions: bigint[], model?: string) => {
+    (
+      body: string,
+      mentions: bigint[],
+      model?: string,
+      images?: ImageUpload[]
+    ) => {
       setBusyNotice(null);
+      const attachments = images ?? [];
       const trimmed = body.trim();
-      if (!trimmed) {
+      if (!trimmed && attachments.length === 0) {
         return;
       }
+      // Reducers require a non-empty prompt; use a placeholder when only
+      // images are attached.
+      const prompt = trimmed.length > 0 ? trimmed : "[Attached image]";
 
       // 1. User mentioned an agent: only mentions spin up an agent thread
       if (mentions.length > 0) {
@@ -1287,11 +1388,12 @@ export const useSendMessage = (
           try {
             await startThread({
               angle: "",
+              images: attachments,
               model,
-              prompt: trimmed,
+              prompt,
               roomId,
               taggedAgent: taggedId,
-              title: trimmed.slice(0, 60),
+              title: prompt.slice(0, 60),
             });
           } catch (error) {
             console.error("start_thread failed", error);
@@ -1309,11 +1411,12 @@ export const useSendMessage = (
           try {
             await startThread({
               angle: "",
+              images: attachments,
               model,
-              prompt: trimmed,
+              prompt,
               roomId,
               taggedAgent: undefined,
-              title: trimmed.slice(0, 60),
+              title: prompt.slice(0, 60),
             });
           } catch (error) {
             console.error("start_thread failed", error);
@@ -1329,7 +1432,8 @@ export const useSendMessage = (
         const run = async (): Promise<void> => {
           try {
             await postMessage({
-              body: trimmed,
+              body: prompt,
+              images: attachments,
               mentions: [],
               model,
               threadId: generalThread.threadId,
@@ -1347,8 +1451,9 @@ export const useSendMessage = (
         try {
           await startThread({
             angle: "",
+            images: attachments,
             model,
-            prompt: trimmed,
+            prompt,
             roomId,
             taggedAgent: undefined,
             title: "General",
@@ -1385,10 +1490,20 @@ export const useSendMessage = (
 
 export const useSteerThread = (
   threadId: bigint | null
-): ((body: string, mentions: bigint[], model?: string) => void) => {
+): ((
+  body: string,
+  mentions: bigint[],
+  model?: string,
+  images?: ImageUpload[]
+) => void) => {
   const postMessage = useReducer(reducers.postMessage);
   return useCallback(
-    (body: string, mentions: bigint[], model?: string) => {
+    (
+      body: string,
+      mentions: bigint[],
+      model?: string,
+      images?: ImageUpload[]
+    ) => {
       if (threadId === null) {
         return;
       }
@@ -1396,6 +1511,7 @@ export const useSteerThread = (
         try {
           await postMessage({
             body,
+            images: images ?? [],
             mentions,
             model,
             threadId,

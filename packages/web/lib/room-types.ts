@@ -109,6 +109,8 @@ export interface ChatMessage {
   /** Unix-micros timestamp for accurate chronological sorting. */
   createdAtMicros?: bigint;
   chunks: MessageChunk[];
+  /** Base64 image attachments (data + mime) for this message. */
+  images?: { data: string; mime: string }[];
   ticks?: StreamTick[];
   toolCall?: ToolCallInfo;
   /** All tool calls that produced this message (one job can fan out to several). */

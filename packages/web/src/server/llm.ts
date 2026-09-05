@@ -1,6 +1,12 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import { OpenAI } from "openai";
+import type {
+  ChatCompletionContentPart,
+  ChatCompletionMessageParam,
+  ChatCompletionMessageToolCall,
+  ChatCompletionTool,
+} from "openai/resources/chat/completions";
 
 import { config } from "./config";
 
@@ -55,6 +61,21 @@ const modelContext = new AsyncLocalStorage<string>();
 
 export const withModel = <T>(model: string | undefined, fn: () => T): T =>
   modelContext.run(model ?? "", fn);
+
+export interface ImagePart {
+  data: string;
+  mime: string;
+}
+
+/** Per-job image context, scoped so every agent in the job can see the images. */
+const imageContext = new AsyncLocalStorage<ImagePart[]>();
+
+export const withImages = <T>(
+  images: ImagePart[] | undefined,
+  fn: () => T
+): T => imageContext.run(images ?? [], fn);
+
+const getImageParts = (): ImagePart[] => imageContext.getStore() ?? [];
 
 const clients = new Map<ProviderName, OpenAI>();
 
@@ -134,10 +155,21 @@ const requestChat = async (
 ): Promise<string> => {
   const { model, provider } = parseModelRef(modelRef);
   const llm = getClient(provider);
+  const images = getImageParts();
+  const userContent: string | ChatCompletionContentPart[] =
+    images.length > 0
+      ? [
+          { text: user, type: "text" },
+          ...images.map((img) => ({
+            image_url: { url: `data:${img.mime};base64,${img.data}` },
+            type: "image_url" as const,
+          })),
+        ]
+      : user;
   const response = await llm.chat.completions.create({
     messages: [
       { content: system, role: "system" },
-      { content: user, role: "user" },
+      { content: userContent, role: "user" },
     ],
     model,
     ...(useJsonMode ? { response_format: { type: "json_object" } } : {}),
@@ -210,10 +242,21 @@ const requestChatStream = async (
 ): Promise<string> => {
   const { model, provider } = parseModelRef(modelRef);
   const llm = getClient(provider);
+  const images = getImageParts();
+  const userContent: string | ChatCompletionContentPart[] =
+    images.length > 0
+      ? [
+          { text: user, type: "text" },
+          ...images.map((img) => ({
+            image_url: { url: `data:${img.mime};base64,${img.data}` },
+            type: "image_url" as const,
+          })),
+        ]
+      : user;
   const stream = await llm.chat.completions.create({
     messages: [
       { content: system, role: "system" },
-      { content: user, role: "user" },
+      { content: userContent, role: "user" },
     ],
     model,
     stream: true,
@@ -271,4 +314,161 @@ export const streamChatText = async (
     }
   }
   throw new Error(`All LLM models failed to stream — ${failures.join(" | ")}`);
+};
+
+// ── tool / function calling ────────────────────────────────────────────────
+
+/** A single executable tool an agent may call. */
+export interface AgentTool {
+  description: string;
+  /** JSON Schema for the tool's arguments (parameters field of a tool def). */
+  parameters: Record<string, unknown>;
+  run: (args: Record<string, unknown>) => Promise<unknown>;
+}
+
+export interface ToolCallResult {
+  /** Resolved assistant message content, if the model answered without tools. */
+  content?: string;
+  /** Every tool call the model made, in order, with its result. */
+  calls: { name: string; args: unknown; result: string }[];
+}
+
+const toolResultMessage = (
+  callId: string,
+  _name: string,
+  result: string
+): ChatCompletionMessageParam => ({
+  content: result,
+  role: "tool",
+  tool_call_id: callId,
+});
+
+const safeParse = (raw: string): Record<string, unknown> => {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+};
+
+const truncate = (value: string, max: number): string =>
+  value.length > max ? `${value.slice(0, max)}…` : value;
+
+/**
+ * Agent loop with real function calling: the model decides which tools to call
+ * (and how many, and in what order), observes each result, and keeps going
+ * until it produces a final text answer or the step budget is exhausted.
+ * Each tool call's result is capped so a huge payload cannot bloat context.
+ */
+// oxlint-disable-next-line eslint/complexity -- the multi-step tool loop is intentionally branchy
+export const chatWithTools = async (
+  system: string,
+  user: string,
+  tools: Record<string, AgentTool>,
+  options?: { model?: string; maxSteps?: number; maxResultChars?: number }
+): Promise<ToolCallResult> => {
+  const maxSteps = options?.maxSteps ?? 8;
+  const maxResultChars = options?.maxResultChars ?? 4000;
+  const toolDefs: ChatCompletionTool[] = Object.entries(tools).map(
+    ([name, tool]) => ({
+      function: {
+        description: tool.description,
+        name,
+        parameters: tool.parameters,
+      },
+      type: "function",
+    })
+  );
+  const messages: ChatCompletionMessageParam[] = [
+    { content: system, role: "system" },
+    { content: user, role: "user" },
+  ];
+  const calls: ToolCallResult["calls"] = [];
+  const models = resolveModelList(options?.model);
+  const failures: string[] = [];
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    const useJsonMode = false;
+    let ok = false;
+    let content = "";
+    let toolCalls: ChatCompletionMessageToolCall[] | undefined = undefined;
+    for (const model of models) {
+      const { model: modelName, provider } = parseModelRef(model);
+      const llm = getClient(provider);
+      const startedAt = Date.now();
+      try {
+        console.info(`[llm] tools model=${model} step=${step + 1}`);
+        // eslint-disable-next-line no-await-in-loop -- fallback models are tried sequentially
+        const response = await llm.chat.completions.create({
+          messages,
+          model: modelName,
+          ...(useJsonMode ? { response_format: { type: "json_object" } } : {}),
+          ...(toolDefs.length > 0 ? { tools: toolDefs } : {}),
+        });
+        const msg = response.choices[0]?.message;
+        content = msg?.content ?? "";
+        toolCalls = msg?.tool_calls;
+        console.info(
+          `[llm] tools ok model=${model} in ${Date.now() - startedAt}ms`
+        );
+        ok = true;
+        break;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push(`${model}: ${message}`);
+        console.warn(
+          `[llm] tools model=${model} FAILED after ${Date.now() - startedAt}ms: ${message.slice(0, 160)}`
+        );
+      }
+    }
+    if (!ok) {
+      throw new Error(`All LLM models failed — ${failures.join(" | ")}`);
+    }
+
+    if (toolCalls && toolCalls.length > 0) {
+      const assistantMsg: ChatCompletionMessageParam = {
+        content: content || null,
+        role: "assistant",
+        tool_calls: toolCalls,
+      };
+      messages.push(assistantMsg);
+      for (const call of toolCalls) {
+        if (call.type !== "function") {
+          continue;
+        }
+        const { name } = call.function;
+        const tool = tools[name];
+        const args = safeParse(call.function.arguments);
+        let resultText = "tool not found";
+        if (tool) {
+          try {
+            // eslint-disable-next-line no-await-in-loop -- tool calls execute in order
+            const raw = await tool.run(args);
+            resultText = truncate(JSON.stringify(raw), maxResultChars);
+          } catch (error) {
+            resultText = truncate(
+              `tool error: ${error instanceof Error ? error.message : String(error)}`,
+              maxResultChars
+            );
+          }
+        }
+        calls.push({ args, name, result: resultText });
+        messages.push(toolResultMessage(call.id, name, resultText));
+      }
+      continue;
+    }
+
+    // Model produced a final answer.
+    if (content.trim().length > 0) {
+      return { calls, content };
+    }
+    throw new Error("LLM returned an empty response");
+  }
+  throw new Error(
+    `Agent exceeded ${maxSteps} tool steps without a final answer; last tools: ${calls.map((c) => c.name).join(", ") || "none"}`
+  );
 };

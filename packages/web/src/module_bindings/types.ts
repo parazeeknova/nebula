@@ -85,6 +85,12 @@ export const Exploration = __t.object("Exploration", {
 });
 export type Exploration = __Infer<typeof Exploration>;
 
+export const ImageUpload = __t.object("ImageUpload", {
+  data: __t.string(),
+  mime: __t.string(),
+});
+export type ImageUpload = __Infer<typeof ImageUpload>;
+
 export const MergeLink = __t.object("MergeLink", {
   sessionId: __t.u64(),
   threadId: __t.u64(),
@@ -113,6 +119,15 @@ export const Message = __t.object("Message", {
   threadId: __t.u64(),
 });
 export type Message = __Infer<typeof Message>;
+
+export const MessageAttachment = __t.object("MessageAttachment", {
+  attachmentId: __t.u64(),
+  createdAt: __t.timestamp(),
+  data: __t.string(),
+  mime: __t.string(),
+  messageId: __t.u64(),
+});
+export type MessageAttachment = __Infer<typeof MessageAttachment>;
 
 export const MessageChunk = __t.object("MessageChunk", {
   chunkId: __t.u64(),
@@ -169,6 +184,13 @@ export const RoomPresence = __t.object("RoomPresence", {
   roomId: __t.u64(),
 });
 export type RoomPresence = __Infer<typeof RoomPresence>;
+
+export const RoomReadState = __t.object("RoomReadState", {
+  identity: __t.identity(),
+  lastReadMessageId: __t.u64(),
+  roomId: __t.u64(),
+});
+export type RoomReadState = __Infer<typeof RoomReadState>;
 
 export const RoomUserStatus = __t.object("RoomUserStatus", {
   identity: __t.identity(),

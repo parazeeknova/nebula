@@ -1,32 +1,32 @@
-import { chatJson } from "../llm";
-import { evaluationSystem, memoryBlock } from "./prompts";
-import type {
-  EvaluationOutput,
-  MarketAnalysisOutput,
-  TaskContext,
-  WebResearchOutput,
-} from "./types";
+import { evaluationSystem } from "./prompts";
+import { runAgent, toStatus } from "./runner";
+import type { EvaluationOutput } from "./types";
 
-export const runEvaluation = (
+export const runEvaluation = async (
   task: string,
-  context?: TaskContext,
-  research?: WebResearchOutput,
-  market?: MarketAnalysisOutput,
-  memory?: string
+  _context?: unknown,
+  prior?: object,
+  _memory?: string,
+  model?: string
 ): Promise<EvaluationOutput> => {
-  const parts = [`Objective: ${task}`];
-  if (context?.industry) {
-    parts.push(`Stated industry/domain: ${context.industry}`);
-  }
-  const mem = memoryBlock(memory);
-  if (mem) {
-    parts.push(mem.trim());
-  }
-  parts.push(
-    `Supporting context: ${JSON.stringify({
-      market_analysis: market ?? null,
-      web_research: research ?? null,
-    })}`
+  const raw = await runAgent<EvaluationOutput>(
+    "evaluation",
+    { maxSteps: 4, system: evaluationSystem(), tools: [] },
+    task,
+    { model, prior }
   );
-  return chatJson<EvaluationOutput>(evaluationSystem(), parts.join("\n\n"));
+  return {
+    alternatives: Array.isArray(raw.alternatives) ? raw.alternatives : [],
+    assumptions: Array.isArray(raw.assumptions) ? raw.assumptions : [],
+    confidence:
+      typeof raw.confidence === "number"
+        ? Math.min(1, Math.max(0, raw.confidence))
+        : 0,
+    decision: typeof raw.decision === "string" ? raw.decision : "INVESTIGATE",
+    reasoning: Array.isArray(raw.reasoning) ? raw.reasoning : [],
+    recommendation:
+      typeof raw.recommendation === "string" ? raw.recommendation : "",
+    risks: Array.isArray(raw.risks) ? raw.risks : [],
+    status: toStatus(raw.status),
+  };
 };

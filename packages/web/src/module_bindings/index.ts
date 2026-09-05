@@ -36,6 +36,7 @@ import {
 // Import all reducer arg schemas
 import AddStepReducer from "./add_step_reducer";
 import AddAgentToRoomReducer from "./add_agent_to_room_reducer";
+import AddAttachmentReducer from "./add_attachment_reducer";
 import AppendChunkReducer from "./append_chunk_reducer";
 import ArchiveRoomReducer from "./archive_room_reducer";
 import ClaimJobReducer from "./claim_job_reducer";
@@ -53,6 +54,7 @@ import LeaveRoomReducer from "./leave_room_reducer";
 import LinkThreadToMergeReducer from "./link_thread_to_merge_reducer";
 import LogToolCallReducer from "./log_tool_call_reducer";
 import MarkExplorationReducer from "./mark_exploration_reducer";
+import MarkRoomReadReducer from "./mark_room_read_reducer";
 import MoveRoomReducer from "./move_room_reducer";
 import OpenMergeSessionReducer from "./open_merge_session_reducer";
 import PostMessageReducer from "./post_message_reducer";
@@ -85,12 +87,14 @@ import ExplorationRow from "./exploration_table";
 import MergeLinkRow from "./merge_link_table";
 import MergeSessionRow from "./merge_session_table";
 import MessageRow from "./message_table";
+import MessageAttachmentRow from "./message_attachment_table";
 import MessageChunkRow from "./message_chunk_table";
 import RoomRow from "./room_table";
 import RoomAgentRow from "./room_agent_table";
 import RoomHumanRow from "./room_human_table";
 import RoomMemoryEntryRow from "./room_memory_entry_table";
 import RoomPresenceRow from "./room_presence_table";
+import RoomReadStateRow from "./room_read_state_table";
 import RoomUserStatusRow from "./room_user_status_table";
 import StreamEventRow from "./stream_event_table";
 import ThreadRow from "./thread_table";
@@ -225,6 +229,20 @@ const tablesSchema = __schema({
       { name: 'message_message_id_key', constraint: 'unique', columns: ['messageId'] },
     ],
   }, MessageRow),
+  messageAttachment: __table({
+    name: 'message_attachment',
+    indexes: [
+      { accessor: 'attachment_id', name: 'message_attachment_attachment_id_idx_btree', algorithm: 'btree', columns: [
+        'attachmentId',
+      ] },
+      { accessor: 'by_message', name: 'message_attachment_message_id_idx_btree', algorithm: 'btree', columns: [
+        'messageId',
+      ] },
+    ],
+    constraints: [
+      { name: 'message_attachment_attachment_id_key', constraint: 'unique', columns: ['attachmentId'] },
+    ],
+  }, MessageAttachmentRow),
   messageChunk: __table({
     name: 'message_chunk',
     indexes: [
@@ -306,6 +324,17 @@ const tablesSchema = __schema({
       { name: 'room_presence_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, RoomPresenceRow),
+  roomReadState: __table({
+    name: 'room_read_state',
+    indexes: [
+      { accessor: 'by_room', name: 'room_read_state_room_id_identity_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+        'identity',
+      ] },
+    ],
+    constraints: [
+    ],
+  }, RoomReadStateRow),
   roomUserStatus: __table({
     name: 'room_user_status',
     indexes: [
@@ -391,6 +420,7 @@ const tablesSchema = __schema({
 const reducersSchema = __reducers(
   __reducerSchema("add_step", AddStepReducer),
   __reducerSchema("add_agent_to_room", AddAgentToRoomReducer),
+  __reducerSchema("add_attachment", AddAttachmentReducer),
   __reducerSchema("append_chunk", AppendChunkReducer),
   __reducerSchema("archive_room", ArchiveRoomReducer),
   __reducerSchema("claim_job", ClaimJobReducer),
@@ -408,6 +438,7 @@ const reducersSchema = __reducers(
   __reducerSchema("link_thread_to_merge", LinkThreadToMergeReducer),
   __reducerSchema("log_tool_call", LogToolCallReducer),
   __reducerSchema("mark_exploration", MarkExplorationReducer),
+  __reducerSchema("mark_room_read", MarkRoomReadReducer),
   __reducerSchema("move_room", MoveRoomReducer),
   __reducerSchema("open_merge_session", OpenMergeSessionReducer),
   __reducerSchema("post_message", PostMessageReducer),
@@ -446,6 +477,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "merge_link": Omit<typeof tablesSchema.schemaType.tables["mergeLink"], "accessorName"> & { readonly accessorName: "merge_link" };
     /** @deprecated Use `mergeSession` instead. This alias will be removed in the next major version. */
     readonly "merge_session": Omit<typeof tablesSchema.schemaType.tables["mergeSession"], "accessorName"> & { readonly accessorName: "merge_session" };
+    /** @deprecated Use `messageAttachment` instead. This alias will be removed in the next major version. */
+    readonly "message_attachment": Omit<typeof tablesSchema.schemaType.tables["messageAttachment"], "accessorName"> & { readonly accessorName: "message_attachment" };
     /** @deprecated Use `messageChunk` instead. This alias will be removed in the next major version. */
     readonly "message_chunk": Omit<typeof tablesSchema.schemaType.tables["messageChunk"], "accessorName"> & { readonly accessorName: "message_chunk" };
     /** @deprecated Use `roomAgent` instead. This alias will be removed in the next major version. */
@@ -456,6 +489,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "room_memory_entry": Omit<typeof tablesSchema.schemaType.tables["roomMemoryEntry"], "accessorName"> & { readonly accessorName: "room_memory_entry" };
     /** @deprecated Use `roomPresence` instead. This alias will be removed in the next major version. */
     readonly "room_presence": Omit<typeof tablesSchema.schemaType.tables["roomPresence"], "accessorName"> & { readonly accessorName: "room_presence" };
+    /** @deprecated Use `roomReadState` instead. This alias will be removed in the next major version. */
+    readonly "room_read_state": Omit<typeof tablesSchema.schemaType.tables["roomReadState"], "accessorName"> & { readonly accessorName: "room_read_state" };
     /** @deprecated Use `roomUserStatus` instead. This alias will be removed in the next major version. */
     readonly "room_user_status": Omit<typeof tablesSchema.schemaType.tables["roomUserStatus"], "accessorName"> & { readonly accessorName: "room_user_status" };
     /** @deprecated Use `streamEvent` instead. This alias will be removed in the next major version. */
@@ -490,11 +525,13 @@ const tableAccessorAliases = {
   "app_user": "appUser",
   "merge_link": "mergeLink",
   "merge_session": "mergeSession",
+  "message_attachment": "messageAttachment",
   "message_chunk": "messageChunk",
   "room_agent": "roomAgent",
   "room_human": "roomHuman",
   "room_memory_entry": "roomMemoryEntry",
   "room_presence": "roomPresence",
+  "room_read_state": "roomReadState",
   "room_user_status": "roomUserStatus",
   "stream_event": "streamEvent",
   "tool_call": "toolCall",
@@ -532,6 +569,8 @@ export type DbView = __DbViewBase & {
   readonly "merge_link": __DbViewBase["mergeLink"];
   /** @deprecated Use `mergeSession` instead. This alias will be removed in the next major version. */
   readonly "merge_session": __DbViewBase["mergeSession"];
+  /** @deprecated Use `messageAttachment` instead. This alias will be removed in the next major version. */
+  readonly "message_attachment": __DbViewBase["messageAttachment"];
   /** @deprecated Use `messageChunk` instead. This alias will be removed in the next major version. */
   readonly "message_chunk": __DbViewBase["messageChunk"];
   /** @deprecated Use `roomAgent` instead. This alias will be removed in the next major version. */
@@ -542,6 +581,8 @@ export type DbView = __DbViewBase & {
   readonly "room_memory_entry": __DbViewBase["roomMemoryEntry"];
   /** @deprecated Use `roomPresence` instead. This alias will be removed in the next major version. */
   readonly "room_presence": __DbViewBase["roomPresence"];
+  /** @deprecated Use `roomReadState` instead. This alias will be removed in the next major version. */
+  readonly "room_read_state": __DbViewBase["roomReadState"];
   /** @deprecated Use `roomUserStatus` instead. This alias will be removed in the next major version. */
   readonly "room_user_status": __DbViewBase["roomUserStatus"];
   /** @deprecated Use `streamEvent` instead. This alias will be removed in the next major version. */
@@ -568,6 +609,8 @@ export type Tables = __TablesBase & {
   readonly "merge_link": __TablesBase["mergeLink"];
   /** @deprecated Use `mergeSession` instead. This alias will be removed in the next major version. */
   readonly "merge_session": __TablesBase["mergeSession"];
+  /** @deprecated Use `messageAttachment` instead. This alias will be removed in the next major version. */
+  readonly "message_attachment": __TablesBase["messageAttachment"];
   /** @deprecated Use `messageChunk` instead. This alias will be removed in the next major version. */
   readonly "message_chunk": __TablesBase["messageChunk"];
   /** @deprecated Use `roomAgent` instead. This alias will be removed in the next major version. */
@@ -578,6 +621,8 @@ export type Tables = __TablesBase & {
   readonly "room_memory_entry": __TablesBase["roomMemoryEntry"];
   /** @deprecated Use `roomPresence` instead. This alias will be removed in the next major version. */
   readonly "room_presence": __TablesBase["roomPresence"];
+  /** @deprecated Use `roomReadState` instead. This alias will be removed in the next major version. */
+  readonly "room_read_state": __TablesBase["roomReadState"];
   /** @deprecated Use `roomUserStatus` instead. This alias will be removed in the next major version. */
   readonly "room_user_status": __TablesBase["roomUserStatus"];
   /** @deprecated Use `streamEvent` instead. This alias will be removed in the next major version. */

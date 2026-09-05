@@ -30,7 +30,8 @@ import {
   pullRoomMemory,
   recordMessages,
 } from "./honcho";
-import { withModel } from "./llm";
+import { withImages, withModel } from "./llm";
+import type { ImagePart } from "./llm";
 import { TokenBuffer } from "./stream-buffer";
 
 const sleep = (ms: number): Promise<void> =>
@@ -196,13 +197,10 @@ const runAgentFor = (
   if (agent === "support") {
     return runSupport(task, undefined, memory);
   }
-  return runEvaluation(
-    task,
-    undefined,
-    results.web_result ?? undefined,
-    results.market_result ?? undefined,
-    memory
-  );
+  return runEvaluation(task, undefined, {
+    market_analysis: results.market_result ?? undefined,
+    web_research: results.web_result ?? undefined,
+  });
 };
 
 const resultsWith = (
@@ -531,6 +529,26 @@ const streamFinalAnswer = async (
   }
 };
 
+/** Collect image attachments from all messages in a thread, oldest first. */
+const collectThreadImages = (
+  conn: DbConnection,
+  threadId: bigint
+): ImagePart[] => {
+  const messageIds = new Set<bigint>();
+  for (const m of conn.db.message.iter()) {
+    if (m.threadId === threadId && m.roomId !== undefined) {
+      messageIds.add(m.messageId);
+    }
+  }
+  const parts: ImagePart[] = [];
+  for (const att of conn.db.messageAttachment.iter()) {
+    if (messageIds.has(att.messageId)) {
+      parts.push({ data: att.data, mime: att.mime });
+    }
+  }
+  return parts;
+};
+
 const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
   log(`claiming job ${job.jobId}: "${job.prompt.slice(0, 80)}"`);
   let messageId: bigint | null = null;
@@ -561,6 +579,7 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
     log(`job ${job.jobId} -> @${handle} (${route})`);
 
     const memory = await loadMemoryFor(conn, job, assistantAgentId);
+    const images = collectThreadImages(conn, job.threadId);
 
     await conn.reducers.signalEvent({
       kind: "thinking",
@@ -576,7 +595,9 @@ const handleJob = async (conn: DbConnection, job: AiJob): Promise<void> => {
       });
     }
 
-    const answer = await streamFinalAnswer(conn, job, messageId, route, memory);
+    const answer = await withImages(images, () =>
+      streamFinalAnswer(conn, job, messageId as bigint, route, memory)
+    );
     await conn.reducers.completeJob({
       finalBody: "",
       jobId: job.jobId,
@@ -621,6 +642,7 @@ const main = async (): Promise<void> => {
     "SELECT * FROM ai_job",
     "SELECT * FROM agent",
     "SELECT * FROM message",
+    "SELECT * FROM message_attachment",
     "SELECT * FROM room",
     "SELECT * FROM room_memory_entry",
     "SELECT * FROM thread",

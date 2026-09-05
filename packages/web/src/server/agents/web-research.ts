@@ -1,25 +1,23 @@
-import { firecrawlSearch } from "../firecrawl";
-import { chatJson } from "../llm";
-import { memoryBlock, webResearchSystem } from "./prompts";
-import type { TaskContext, WebResearchOutput } from "./types";
+import { webResearchSystem } from "./prompts";
+import { runAgent, toStatus } from "./runner";
+import type { WebResearchOutput } from "./types";
 
 export const runWebResearch = async (
   task: string,
-  context?: TaskContext,
-  memory?: string
+  _context?: unknown,
+  memory?: string,
+  model?: string
 ): Promise<WebResearchOutput> => {
-  const results = await firecrawlSearch(task);
-  const listing =
-    results.length > 0
-      ? results
-          .map((r, i) => `${i + 1}. ${r.title} (${r.url})\n${r.summary}`)
-          .join("\n\n")
-      : "No search results were returned.";
-  const hint = context?.industry
-    ? `\n\nStated industry/domain: ${context.industry}`
-    : "";
-  return chatJson<WebResearchOutput>(
-    webResearchSystem(),
-    `Task: ${task}${hint}${memoryBlock(memory)}\n\nSearch results:\n${listing}`
+  const raw = await runAgent<WebResearchOutput>(
+    "web",
+    { maxSteps: 6, system: webResearchSystem(), tools: [] },
+    task,
+    { memory, model }
   );
+  return {
+    findings: Array.isArray(raw.findings) ? raw.findings : [],
+    sources: Array.isArray(raw.sources) ? raw.sources : [],
+    status: toStatus(raw.status),
+    topic: typeof raw.topic === "string" ? raw.topic : task,
+  };
 };

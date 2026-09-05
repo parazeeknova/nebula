@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSpacetimeDB } from "spacetimedb/react";
 
 import {
+  useMarkRoomRead,
   useMyProfile,
   useRenameRoom,
   useRoomData,
@@ -52,6 +53,7 @@ export const RoomView = ({
   const { send, armNewThread, newThreadArmed, busyNotice, clearBusyNotice } =
     useSendMessage(roomId, data.generalThread, data.agents, data.jobs);
   useRoomPresence(roomId, connected && ready);
+  useMarkRoomRead(roomId, connected && ready, data.ready);
 
   const [activeThreadId, setActiveThreadId] = useState<bigint | null>(null);
   const [membersOpen, setMembersOpen] = useState(true);
@@ -235,6 +237,7 @@ export const RoomView = ({
             agents={data.agents}
             roomName={room.name}
             threadSummaries={data.threadSummaries}
+            firstUnreadId={data.firstUnreadId}
             onOpenThread={(id) => setActiveThreadId(id)}
           />
         ) : (

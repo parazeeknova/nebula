@@ -242,7 +242,14 @@ export const WorkspaceShell = () => {
   })();
 
   return (
-    <div className="bg-abyss text-ink flex h-dvh overflow-hidden">
+    <div className="bg-abyss text-ink relative flex h-dvh overflow-hidden">
+      <img
+        src="/cloud.jpg"
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-10"
+        draggable={false}
+      />
       {/* desktop sidebar */}
       <div className="hidden shrink-0 md:flex">
         <Sidebar
@@ -288,7 +295,7 @@ export const WorkspaceShell = () => {
 
       {/* main canvas */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <main className="bg-chat relative min-h-0 min-w-0 flex-1">
+        <main className="bg-chat/30 relative min-h-0 min-w-0 flex-1">
           {canvas}
         </main>
       </div>

@@ -5,7 +5,7 @@ import type { FormEvent, ReactNode } from "react";
 
 import type { Agent, RoomHuman } from "@/lib/room-types";
 
-import { ChevronDownIcon, PlusIcon, SendIcon, SparkleIcon } from "../icons";
+import { ChevronDownIcon, ImageIcon, SendIcon, SparkleIcon } from "../icons";
 import { Avatar } from "./avatar";
 import { MicButton } from "./mic-button";
 
@@ -15,7 +15,12 @@ interface Props {
   typingNames: string[];
   connected: boolean;
   variant?: "room" | "thread";
-  onSend: (body: string, mentions: bigint[], model?: string) => void;
+  onSend: (
+    body: string,
+    mentions: bigint[],
+    model?: string,
+    images?: { data: string; mime: string }[]
+  ) => void;
   onTyping?: () => void;
   onStopTyping?: () => void;
   onVoiceChange?: (recording: boolean) => void;
@@ -306,6 +311,7 @@ const ModelDropdown = ({
   );
 };
 
+// oxlint-disable-next-line eslint/complexity
 export const Composer = ({
   agents,
   humans,
@@ -322,8 +328,11 @@ export const Composer = ({
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
   const [model, setModel] = useState(DEFAULT_MODEL);
+  const [images, setImages] = useState<{ data: string; mime: string }[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const candidates = useMemo(() => {
@@ -431,11 +440,47 @@ export const Composer = ({
     taRef.current?.focus();
   };
 
+  const handleFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) {
+      return;
+    }
+    const accepted: File[] = [];
+    for (const f of files) {
+      if (f.type.startsWith("image/") && f.size <= 4_000_000) {
+        accepted.push(f);
+      }
+    }
+    for (const f of accepted.slice(0, 4)) {
+      const reader = new FileReader();
+      reader.addEventListener(
+        "load",
+        () => {
+          const { result } = reader;
+          if (typeof result !== "string") {
+            return;
+          }
+          // Strip the data: prefix; keep only the raw base64 payload.
+          const comma = result.indexOf(",");
+          const data = comma === -1 ? result : result.slice(comma + 1);
+          setImages((prev) => [...prev, { data, mime: f.type }]);
+          setPreviewUrls((prev) => [...prev, result]);
+        },
+        { once: true }
+      );
+      reader.readAsDataURL(f);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     onStopTyping?.();
     const body = value.trim();
-    if (!body || !connected) {
+    if ((!body && images.length === 0) || !connected) {
       return;
     }
     const mentionedHandles = new Set(
@@ -446,8 +491,10 @@ export const Composer = ({
     const mentions = agents
       .filter((a) => mentionedHandles.has(a.handle.toLowerCase()))
       .map((a) => a.agentId);
-    onSend(body, mentions, model);
+    onSend(body, mentions, model, images);
     setValue("");
+    setImages([]);
+    setPreviewUrls([]);
     setMentionOpen(false);
     if (taRef.current) {
       taRef.current.style.height = "auto";
@@ -547,18 +594,52 @@ export const Composer = ({
 
         <form
           onSubmit={submit}
-          className={`bg-input flex items-end gap-2 px-3 py-2.5 ring-1 transition ${
+          className={`bg-input flex items-center gap-2 px-3 py-2.5 ring-1 transition ${
             mentionOpen
               ? "ring-blurple/60"
               : "focus-within:ring-blurple/50 ring-white/10"
           }`}
         >
+          {previewUrls.length > 0 && (
+            <div className="flex w-full flex-wrap gap-2 px-0.5 pb-2">
+              {previewUrls.map((url, i) => (
+                <div key={url} className="relative h-14 w-14">
+                  {/* oxlint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`Attachment ${i + 1}`}
+                    className="h-14 w-14 border border-white/10 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    aria-label={`Remove attachment ${i + 1}`}
+                    className="text-ink-ghost absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center border border-white/20 bg-black/70 text-[10px] transition hover:bg-black hover:text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              handleFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
           <button
             type="button"
-            aria-label="Attach"
-            className="text-ink-dim hover:text-ink mb-0.5 grid h-8 w-8 shrink-0 place-items-center bg-white/[0.06] transition hover:bg-white/10"
+            aria-label="Attach image"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-ink-dim hover:text-ink grid h-8 w-8 shrink-0 place-items-center bg-white/[0.06] transition hover:bg-white/10"
           >
-            <PlusIcon />
+            <ImageIcon className="h-3.5 w-3.5" />
           </button>
           <textarea
             ref={taRef}
@@ -636,10 +717,10 @@ export const Composer = ({
           />
           <button
             type="submit"
-            disabled={!value.trim() || !connected}
+            disabled={(!value.trim() && images.length === 0) || !connected}
             aria-label={variant === "thread" ? "Send steer" : "Send message"}
-            className={`mb-0.5 grid h-8 w-8 shrink-0 place-items-center transition-all ${
-              value.trim() && connected
+            className={`grid h-8 w-8 shrink-0 place-items-center transition-all ${
+              (value.trim() || images.length > 0) && connected
                 ? "bg-blurple hover:bg-blurple-deep text-white shadow-[0_4px_14px_rgba(88,101,242,0.55)]"
                 : "text-ink-ghost bg-white/[0.06]"
             }`}

@@ -6,6 +6,12 @@ import { buildSnapshotPayload } from "./lib/memory";
 import { mergeReady } from "./lib/merging";
 import { assertNonEmpty } from "./lib/routing";
 
+// Image attachment passed into message reducers: base64 data + mime type.
+const ImageUpload = t.object("ImageUpload", {
+  data: t.string(),
+  mime: t.string(),
+});
+
 const app_user = table(
   { name: "app_user", public: true },
   {
@@ -109,6 +115,27 @@ const room_presence = table(
   }
 );
 
+// Per-user high-water mark of what they've read in a room. An unread message
+// is one newer than this marker. Auto-seeded on first room open.
+const room_read_state = table(
+  {
+    indexes: [
+      {
+        accessor: "by_room",
+        algorithm: "btree",
+        columns: ["room_id", "identity"],
+      },
+    ],
+    name: "room_read_state",
+    public: true,
+  },
+  {
+    identity: t.identity(),
+    last_read_message_id: t.u64(),
+    room_id: t.u64(),
+  }
+);
+
 // Per-user live status relayed through the server so separate client
 // instances (different browsers/devices) can see each other's typing and
 // voice state — BroadcastChannel only works within one browser.
@@ -170,6 +197,25 @@ const message_chunk = table(
     delta: t.string(),
     idx: t.u32(),
     message_id: t.u64().index("btree"),
+  }
+);
+
+// Image attachments. Data is stored as base64 so it round-trips through the
+// SpacetimeDB binary protocol and can be sent to multimodal LLMs directly.
+const message_attachment = table(
+  {
+    indexes: [
+      { accessor: "by_message", algorithm: "btree", columns: ["message_id"] },
+    ],
+    name: "message_attachment",
+    public: true,
+  },
+  {
+    attachment_id: t.u64().primaryKey().autoInc(),
+    created_at: t.timestamp(),
+    data: t.string(),
+    mime: t.string(),
+    message_id: t.u64(),
   }
 );
 
@@ -357,12 +403,14 @@ const spacetimedb = schema({
   merge_link,
   merge_session,
   message,
+  message_attachment,
   message_chunk,
   room,
   room_agent,
   room_human,
   room_memory_entry,
   room_presence,
+  room_read_state,
   room_user_status,
   snapshot_timer,
   stream_event,
@@ -411,6 +459,29 @@ const requireRoomMember = (ctx: Ctx, room_id: bigint): void => {
     .some((m) => m.identity.toHexString() === me);
   if (!human) {
     throw new SenderError("join the room first");
+  }
+};
+
+/** Insert validated image attachments for a message. */
+const insertAttachments = (
+  ctx: Ctx,
+  message_id: bigint,
+  images: { data: string; mime: string }[]
+): void => {
+  for (const img of images.slice(0, 4)) {
+    if (!img.mime.startsWith("image/") || img.data.length === 0) {
+      continue;
+    }
+    if (img.data.length > 4_000_000) {
+      continue;
+    }
+    ctx.db.message_attachment.insert({
+      attachment_id: 0n,
+      created_at: ctx.timestamp,
+      data: img.data,
+      message_id,
+      mime: img.mime.slice(0, 64),
+    });
   }
 };
 
@@ -667,6 +738,32 @@ export const join_room = spacetimedb.reducer(
   }
 );
 
+export const mark_room_read = spacetimedb.reducer(
+  { room_id: t.u64() },
+  (ctx, { room_id }) => {
+    getRoom(ctx, room_id);
+    requireRoomMember(ctx, room_id);
+    // Highest message id in this room is the read cursor.
+    let lastRead = 0n;
+    for (const m of ctx.db.message.room_id.filter(room_id)) {
+      if (m.message_id > lastRead) {
+        lastRead = m.message_id;
+      }
+    }
+    // Replace any existing marker for this identity in the room.
+    for (const r of ctx.db.room_read_state.by_room.filter(room_id)) {
+      if (r.identity.toHexString() === ctx.sender.toHexString()) {
+        ctx.db.room_read_state.by_room.delete([r.room_id, r.identity]);
+      }
+    }
+    ctx.db.room_read_state.insert({
+      identity: ctx.sender,
+      last_read_message_id: lastRead,
+      room_id,
+    });
+  }
+);
+
 export const leave_room = spacetimedb.reducer(
   { room_id: t.u64() },
   (ctx, { room_id }) => {
@@ -859,6 +956,7 @@ const threadAgentTag = (ctx: Ctx, thread_id: bigint): bigint | undefined => {
 export const start_thread = spacetimedb.reducer(
   {
     angle: t.string(),
+    images: t.array(ImageUpload),
     model: t.option(t.string()),
     prompt: t.string(),
     room_id: t.u64(),
@@ -881,7 +979,7 @@ export const start_thread = spacetimedb.reducer(
       thread_id: 0n,
       title: a.title.trim().slice(0, 200) || prompt.slice(0, 80),
     });
-    ctx.db.message.insert({
+    const msg = ctx.db.message.insert({
       author: ctx.sender,
       author_agent: undefined,
       body: prompt,
@@ -893,6 +991,7 @@ export const start_thread = spacetimedb.reducer(
       streaming: false,
       thread_id: th.thread_id,
     });
+    insertAttachments(ctx, msg.message_id, a.images);
     // No agent mentioned => nothing runs.
     if (a.tagged_agent !== undefined) {
       ctx.db.ai_job.insert({
@@ -915,6 +1014,7 @@ export const start_thread = spacetimedb.reducer(
 export const post_message = spacetimedb.reducer(
   {
     body: t.string(),
+    images: t.array(ImageUpload),
     mentions: t.array(t.u64()),
     model: t.option(t.string()),
     thread_id: t.u64(),
@@ -936,7 +1036,7 @@ export const post_message = spacetimedb.reducer(
       typedMentions.length > 0 ? undefined : threadAgentTag(ctx, th.thread_id);
     const targetAgent =
       typedMentions.length > 0 ? typedMentions[0] : defaultAgent;
-    ctx.db.message.insert({
+    const msg = ctx.db.message.insert({
       author: ctx.sender,
       author_agent: undefined,
       body,
@@ -948,6 +1048,7 @@ export const post_message = spacetimedb.reducer(
       streaming: false,
       thread_id: th.thread_id,
     });
+    insertAttachments(ctx, msg.message_id, a.images);
     ctx.db.thread.thread_id.update({
       ...th,
       status: targetAgent === undefined ? 0 : 1,
@@ -1016,6 +1117,30 @@ export const claim_job = spacetimedb.reducer(
       kind: "thinking",
       message_id: msg.message_id,
       payload: job.angle.trim().slice(0, 200) || "Thinking…",
+    });
+  }
+);
+
+export const add_attachment = spacetimedb.reducer(
+  { data: t.string(), message_id: t.u64(), mime: t.string() },
+  (ctx, a) => {
+    const msg = ctx.db.message.message_id.find(a.message_id);
+    if (!msg) {
+      throw new SenderError("message not found");
+    }
+    requireRoomMember(ctx, msg.room_id);
+    if (a.data.length > 4_000_000) {
+      throw new SenderError("image too large");
+    }
+    if (!a.mime.startsWith("image/")) {
+      throw new SenderError("attachment must be an image");
+    }
+    ctx.db.message_attachment.insert({
+      attachment_id: 0n,
+      created_at: ctx.timestamp,
+      data: a.data,
+      message_id: msg.message_id,
+      mime: a.mime.slice(0, 64),
     });
   }
 );

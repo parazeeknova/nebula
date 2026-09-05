@@ -1,19 +1,24 @@
-import { chatJson } from "../llm";
-import { codeSystem, memoryBlock } from "./prompts";
-import type { CodeOutput, TaskContext } from "./types";
+import { codeSystem } from "./prompts";
+import { runAgent, toStatus } from "./runner";
+import type { CodeOutput } from "./types";
 
-export const runCode = (
+export const runCode = async (
   task: string,
-  context?: TaskContext,
-  memory?: string
+  _context?: unknown,
+  memory?: string,
+  model?: string
 ): Promise<CodeOutput> => {
-  const parts = [`Task: ${task}`];
-  if (context?.industry) {
-    parts.push(`Stated industry/domain: ${context.industry}`);
-  }
-  const mem = memoryBlock(memory);
-  if (mem) {
-    parts.push(mem.trim());
-  }
-  return chatJson<CodeOutput>(codeSystem(), parts.join("\n\n"));
+  const raw = await runAgent<CodeOutput>(
+    "code",
+    { maxSteps: 4, system: codeSystem(), tools: [] },
+    task,
+    { memory, model }
+  );
+  return {
+    code: typeof raw.code === "string" ? raw.code : "",
+    explanation: typeof raw.explanation === "string" ? raw.explanation : "",
+    language: typeof raw.language === "string" ? raw.language : "",
+    status: toStatus(raw.status),
+    suggestions: Array.isArray(raw.suggestions) ? raw.suggestions : [],
+  };
 };

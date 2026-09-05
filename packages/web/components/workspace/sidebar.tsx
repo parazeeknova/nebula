@@ -7,7 +7,6 @@ import type { Room } from "@/lib/room-types";
 import {
   ChevronLeftIcon,
   CompassIcon,
-  GearIcon,
   HashIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -258,7 +257,7 @@ export const Sidebar = ({
 
   return (
     <aside
-      className={`${width} bg-panel max-md:shadow-pop flex h-full shrink-0 flex-col border-r border-white/[0.06] transition-[width] duration-200 ease-out select-none max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-72`}
+      className={`${width} bg-panel/70 max-md:shadow-pop flex h-full shrink-0 flex-col border-r border-white/[0.06] backdrop-blur-md transition-[width] duration-200 ease-out select-none max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-72`}
       aria-label="Sidebar navigation"
     >
       {/* brand header aligned flush with chrome tabs */}
@@ -390,7 +389,7 @@ export const Sidebar = ({
       </nav>
 
       {/* me profile card + collapse */}
-      <div className="bg-panel-2 shrink-0 border-t border-white/[0.06] px-2 py-2">
+      <div className="bg-panel-2/60 shrink-0 border-t border-white/[0.06] px-2 py-2 backdrop-blur-md">
         {collapsed ? (
           <div className="flex flex-col items-center gap-2 py-1 max-md:hidden">
             <span className="relative" title={me.displayName}>
@@ -458,13 +457,6 @@ export const Sidebar = ({
                 {me.online ? "online" : "connecting…"}
               </span>
             </span>
-            <button
-              className="text-ink-faint hover:text-ink p-1.5 transition hover:bg-white/5"
-              aria-label="Settings"
-              title="Settings"
-            >
-              <GearIcon className="h-4 w-4" />
-            </button>
             <button
               onClick={onToggleCollapse}
               className="text-ink-faint hover:text-ink p-1.5 transition hover:bg-white/5 max-md:hidden"

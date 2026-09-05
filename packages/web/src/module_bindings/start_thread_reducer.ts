@@ -10,8 +10,15 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+import {
+  ImageUpload,
+} from "./types";
+
 export default {
   angle: __t.string(),
+  get images() {
+    return __t.array(ImageUpload);
+  },
   model: __t.option(__t.string()),
   prompt: __t.string(),
   roomId: __t.u64(),

@@ -9,10 +9,12 @@ import type {
   Agent as AgentRow,
   AppUser,
   Exploration,
+  MessageAttachment,
   MessageChunk,
   Room as RoomRow,
   RoomMemoryEntry,
   RoomPresence,
+  RoomReadState,
   RoomUserStatus,
   ToolCall,
 } from "../src/module_bindings/types";
@@ -28,11 +30,13 @@ import type {
  */
 export interface SharedRows {
   agents: readonly AgentRow[];
+  attachments: readonly MessageAttachment[];
   chunks: readonly MessageChunk[];
   explorations: readonly Exploration[];
   memories: readonly RoomMemoryEntry[];
   presences: readonly RoomPresence[];
   rooms: readonly RoomRow[];
+  roomReadStates: readonly RoomReadState[];
   roomUserStatus: readonly RoomUserStatus[];
   toolCalls: readonly ToolCall[];
   users: readonly AppUser[];
@@ -42,10 +46,12 @@ const SharedTablesContext = createContext<SharedRows | null>(null);
 
 export const SharedTablesProvider = ({ children }: { children: ReactNode }) => {
   const [agents] = useTable(tables.agent);
+  const [attachments] = useTable(tables.message_attachment);
   const [chunks] = useTable(tables.message_chunk);
   const [explorations] = useTable(tables.exploration);
   const [memories] = useTable(tables.room_memory_entry);
   const [presences] = useTable(tables.room_presence);
+  const [roomReadStates] = useTable(tables.room_read_state);
   const [rooms] = useTable(tables.room);
   const [roomUserStatus] = useTable(tables.room_user_status);
   const [toolCalls] = useTable(tables.tool_call);
@@ -54,10 +60,12 @@ export const SharedTablesProvider = ({ children }: { children: ReactNode }) => {
   const value = useMemo<SharedRows>(
     () => ({
       agents,
+      attachments,
       chunks,
       explorations,
       memories,
       presences,
+      roomReadStates,
       roomUserStatus,
       rooms,
       toolCalls,
@@ -65,10 +73,12 @@ export const SharedTablesProvider = ({ children }: { children: ReactNode }) => {
     }),
     [
       agents,
+      attachments,
       chunks,
       explorations,
       memories,
       presences,
+      roomReadStates,
       roomUserStatus,
       rooms,
       toolCalls,
