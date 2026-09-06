@@ -43,3 +43,23 @@ export const sendFeedback = async (
     to: recipient,
   });
 };
+
+/**
+ * Send a welcome email to a new Nebula user after they create their account.
+ */
+export const sendWelcome = async (
+  recipient: string,
+  name: string
+): Promise<void> => {
+  const cleanName = name.trim();
+  if (!cleanName) {
+    throw new Error("name is empty");
+  }
+  const mail = getTransporter();
+  await mail.sendMail({
+    from: `Nebula <${config.smtpUser}>`,
+    subject: "Welcome to Nebula!",
+    text: `Hi ${cleanName},\n\nWelcome to Nebula — one shared AI workspace for your team.\n\nHere's what you can do:\n- @ any agent in a room and it works right there, live.\n- Rooms remember every thread, so your team's knowledge compounds.\n- Ask overlapping questions and Neb merges them into one answer.\n\nStart exploring, and if you have feedback, just use the "Send feedback" option in the sidebar.\n\n— The Nebula team`,
+    to: recipient,
+  });
+};

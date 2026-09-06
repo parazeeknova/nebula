@@ -15,6 +15,18 @@ interface Props {
   onDone: (name: string) => void;
 }
 
+const sendWelcomeEmail = async (name: string, email: string): Promise<void> => {
+  try {
+    await fetch("/api/welcome", {
+      body: JSON.stringify({ email, name }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+  } catch (error) {
+    console.error("failed to send welcome email", error);
+  }
+};
+
 const ABOUT = [
   {
     icon: BotIcon,
@@ -74,6 +86,7 @@ export const EntryFlowModal = ({
       onboarded: true,
     });
     setCreated(true);
+    void sendWelcomeEmail(cleanName, cleanEmail);
   };
 
   const handleEmailChange = (value: string) => {
