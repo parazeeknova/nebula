@@ -2,9 +2,14 @@ import { ScheduleAt } from "spacetimedb";
 import { SenderError, schema, table, t } from "spacetimedb/server";
 import type { InferSchema, ReducerCtx } from "spacetimedb/server";
 
+import {
+  JOB_RUN_TIMEOUT_MICROS,
+  WATCHDOG_INTERVAL_MICROS,
+} from "./lib/constants";
 import { buildSnapshotPayload } from "./lib/memory";
 import { mergeReady } from "./lib/merging";
 import { assertNonEmpty } from "./lib/routing";
+import { findDanglingMessages, isJobStuck } from "./lib/watchdog";
 
 // Image attachment passed into message reducers: base64 data + mime type.
 const ImageUpload = t.object("ImageUpload", {
@@ -356,6 +361,18 @@ const snapshot_timer = table(
   }
 );
 
+const watchdog_timer = table(
+  {
+    name: "watchdog_timer",
+    // eslint-disable-next-line no-use-before-define, @typescript-eslint/no-explicit-any
+    scheduled: (): any => watchdog_sweep,
+  },
+  {
+    scheduled_at: t.scheduleAt(),
+    scheduled_id: t.u64().primaryKey().autoInc(),
+  }
+);
+
 const agent_job = table(
   { name: "agent_job", public: true },
   {
@@ -416,6 +433,7 @@ const spacetimedb = schema({
   stream_event,
   thread,
   tool_call,
+  watchdog_timer,
   worker_allowlist,
   workspace,
   workspace_snapshot,
@@ -609,6 +627,11 @@ export const init = spacetimedb.init((ctx) => {
     scheduled_id: 0n,
     workspace_id: ws.workspace_id,
   });
+  // Watchdog sweep every 60s reclaims jobs a crashed worker left running.
+  ctx.db.watchdog_timer.insert({
+    scheduled_at: ScheduleAt.interval(WATCHDOG_INTERVAL_MICROS),
+    scheduled_id: 0n,
+  });
 });
 
 export const onConnect = spacetimedb.clientConnected((ctx) => {
@@ -618,6 +641,15 @@ export const onConnect = spacetimedb.clientConnected((ctx) => {
       created_at: ctx.timestamp,
       display_name: ctx.sender.toHexString().slice(0, 12),
       identity: ctx.sender,
+    });
+  }
+  // Self-healing watchdog timer: `init` only runs on a fresh database, so
+  // existing DBs need the timer ensured on first connection too.
+  const watchdogCount = [...ctx.db.watchdog_timer.iter()].length;
+  if (watchdogCount === 0) {
+    ctx.db.watchdog_timer.insert({
+      scheduled_at: ScheduleAt.interval(WATCHDOG_INTERVAL_MICROS),
+      scheduled_id: 0n,
     });
   }
 });
@@ -1110,7 +1142,11 @@ export const claim_job = spacetimedb.reducer(
     if (job.status !== 0) {
       throw new SenderError("job already claimed");
     }
-    ctx.db.ai_job.job_id.update({ ...job, status: 1 });
+    ctx.db.ai_job.job_id.update({
+      ...job,
+      status: 1,
+      claimed_at: ctx.timestamp,
+    });
     // Streaming reply shell. Worker discovers message_id via subscription
     // (newest message in thread with streaming=true), then append_chunk.
     const msg = ctx.db.message.insert({
@@ -1264,6 +1300,70 @@ export const recover_stale_jobs = spacetimedb.reducer((ctx) => {
     }
   }
 });
+
+export const watchdog_sweep = spacetimedb.reducer(
+  { timer: watchdog_timer.rowType },
+  (ctx, { timer }) => {
+    void timer;
+    // A scheduled reducer runs as the module identity; any running job older
+    // than the timeout means a worker died mid-run. Requeue it so the next
+    // poller picks it up — this runs inside SpacetimeDB so it recovers jobs
+    // even when every external worker is down.
+    const now = ctx.timestamp.microsSinceUnixEpoch;
+    for (const job of ctx.db.ai_job.iter()) {
+      if (job.status !== 1) {
+        continue;
+      }
+      const started =
+        job.claimed_at?.microsSinceUnixEpoch ??
+        job.created_at.microsSinceUnixEpoch;
+      if (
+        isJobStuck(
+          {
+            jobId: job.job_id,
+            startedAtMicros: started,
+            status: job.status,
+            threadId: job.thread_id,
+          },
+          now,
+          JOB_RUN_TIMEOUT_MICROS
+        )
+      ) {
+        ctx.db.ai_job.job_id.update({
+          ...job,
+          status: 0,
+          claimed_at: undefined,
+        });
+      }
+    }
+    // Close any streaming reply shells left dangling in threads with no
+    // active job so they never show an infinite typing cursor.
+    const active = new Set<string>();
+    for (const job of ctx.db.ai_job.iter()) {
+      if (job.status === 0 || job.status === 1) {
+        active.add(String(job.thread_id));
+      }
+    }
+    for (const m of findDanglingMessages(
+      [...ctx.db.message.iter()].map((row) => ({
+        messageId: row.message_id,
+        role: row.role,
+        streaming: row.streaming,
+        threadId: row.thread_id,
+      })),
+      active
+    )) {
+      const msg = ctx.db.message.message_id.find(m.messageId);
+      if (msg && msg.streaming) {
+        ctx.db.message.message_id.update({
+          ...msg,
+          body: msg.body.length > 0 ? msg.body : "Request timed out.",
+          streaming: false,
+        });
+      }
+    }
+  }
+);
 
 export const log_tool_call = spacetimedb.reducer(
   { input: t.string(), job_id: t.u64(), tool: t.string() },

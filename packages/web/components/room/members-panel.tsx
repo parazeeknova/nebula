@@ -139,8 +139,10 @@ export const MembersPanel = ({
         </Section>
       )}
 
-      <Section title={`Members — ${online.length} online`}>
-        {online.map((h) => {
+      <Section
+        title={`Members — ${online.length} online · ${humans.length - online.length} offline`}
+      >
+        {humans.map((h) => {
           const isTyping = h.isTyping && h.roleLabel !== "you";
           const isSpeaking = h.isSpeaking && h.roleLabel !== "you";
           let statusLabel = h.roleLabel ?? "member";
@@ -148,15 +150,24 @@ export const MembersPanel = ({
             statusLabel = "typing…";
           } else if (isSpeaking) {
             statusLabel = "speaking…";
+          } else if (!h.isOnline && h.roleLabel !== "you") {
+            statusLabel = "offline";
           }
           return (
             <div
               key={h.hex}
               className="flex cursor-pointer items-center gap-2.5 px-2 py-1.5 transition hover:bg-white/[0.05]"
             >
-              <Avatar name={h.displayName} color={h.color} size={32} online />
+              <Avatar
+                name={h.displayName}
+                color={h.color}
+                size={32}
+                online={h.isOnline}
+              />
               <span className="min-w-0 flex-1 leading-tight">
-                <span className="text-ink block truncate text-[13px] font-semibold">
+                <span
+                  className={`block truncate text-[13px] font-semibold ${h.isOnline ? "text-ink" : "text-ink-dim"}`}
+                >
                   {h.displayName}
                 </span>
                 <span

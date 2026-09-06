@@ -20,18 +20,18 @@ const ChatRow = ({
 }) => {
   if (compact) {
     return (
-      <div className="px-4 py-[3px] pl-[68px]">
+      <div className="px-3 py-[3px] pl-12 sm:px-4 sm:pl-[68px]">
         <div className={`${bone} h-4`} style={{ width: w1 }} />
       </div>
     );
   }
   return (
-    <div className="flex gap-3 px-4 pt-4 pb-1">
-      <div className={`${bone} h-10 w-10 shrink-0`} />
+    <div className="flex gap-2.5 px-3 pt-4 pb-1 sm:gap-3 sm:px-4">
+      <div className={`${bone} hidden h-10 w-10 shrink-0 sm:block`} />
       <div className="min-w-0 flex-1 space-y-2 pt-0.5">
         <div className="flex items-center gap-2">
-          <div className={`${bone} h-3.5 w-24`} />
-          <div className={`${bone} h-3 w-14`} />
+          <div className={`${bone} h-3.5 w-20 sm:w-24`} />
+          <div className={`${bone} h-3 w-12 sm:w-14`} />
         </div>
         <div className={`${bone} h-4`} style={{ width: w1 }} />
         <div className={`${bone} h-4`} style={{ width: w2 }} />
@@ -47,10 +47,10 @@ export const ChatSkeleton = ({ roomName }: { roomName: string }) => (
     aria-busy="true"
     aria-label="Loading messages"
   >
-    <div className="px-4 pt-6 pb-4">
-      <div className="bg-panel h-16 w-16 animate-pulse ring-1 ring-white/10" />
-      <div className={`${bone} mt-3 h-7 w-56`} />
-      <div className={`${bone} mt-2 h-4 w-80 max-w-full`} />
+    <div className="px-3 pt-6 pb-4 sm:px-4">
+      <div className="bg-panel h-14 w-14 animate-pulse ring-1 ring-white/10 sm:h-16 sm:w-16" />
+      <div className={`${bone} mt-3 h-6 w-44 max-w-full sm:h-7 sm:w-56`} />
+      <div className={`${bone} mt-2 h-4 w-64 max-w-full sm:w-80`} />
     </div>
     <ChatRow w1="92%" w2="64%" />
     <ChatRow w1="78%" w2="41%" />
@@ -74,7 +74,7 @@ const PersonRow = () => (
 
 export const PeopleSkeleton = () => (
   <div
-    className="bg-panel flex w-60 shrink-0 flex-col overflow-hidden border-l border-white/[0.06] px-2 py-3"
+    className="bg-panel flex h-full w-full shrink-0 flex-col overflow-hidden border-l border-white/[0.06] px-2 py-3 sm:w-60"
     role="status"
     aria-busy="true"
     aria-label="Loading members"
@@ -108,14 +108,14 @@ export const CanvasSkeleton = () => (
     aria-busy="true"
     aria-label="Loading workspace"
   >
-    <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-3">
-      <div className={`${bone} h-7 w-7`} />
-      <div className={`${bone} h-4 w-40`} />
+    <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-white/[0.06] px-3 sm:h-12 sm:px-4">
+      <div className={`${bone} h-6 w-6 sm:h-7 sm:w-7`} />
+      <div className={`${bone} h-4 w-32 sm:w-40`} />
     </div>
-    <div className="min-h-0 flex-1 overflow-hidden px-4 pt-6 pb-4">
-      <div className="bg-panel h-16 w-16 animate-pulse ring-1 ring-white/10" />
-      <div className={`${bone} mt-3 h-7 w-56`} />
-      <div className={`${bone} mt-2 h-4 w-80 max-w-full`} />
+    <div className="min-h-0 flex-1 overflow-hidden px-3 pt-6 pb-4 sm:px-4">
+      <div className="bg-panel h-14 w-14 animate-pulse ring-1 ring-white/10 sm:h-16 sm:w-16" />
+      <div className={`${bone} mt-3 h-6 w-44 max-w-full sm:h-7 sm:w-56`} />
+      <div className={`${bone} mt-2 h-4 w-64 max-w-full sm:w-80`} />
       <ChatRow w1="92%" w2="64%" />
       <ChatRow w1="78%" w2="41%" />
       <ChatRow w1="85%" w2="58%" />

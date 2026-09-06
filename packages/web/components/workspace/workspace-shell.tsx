@@ -61,7 +61,7 @@ export const WorkspaceShell = () => {
   const [showEntryFlow, setShowEntryFlow] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (typeof window === "undefined" || !ready) {
       return;
     }
     const params = new URLSearchParams(window.location.search);
@@ -70,12 +70,14 @@ export const WorkspaceShell = () => {
     const session = getUserSession();
     // Only show onboarding for a genuinely new user: no onboarded marker AND
     // (explicit entry param OR no rooms yet). Returning members with an
-    // onboarded session must never see it again.
+    // onboarded session must never see it again. We wait for `ready` so the
+    // room list is loaded before deciding — otherwise it opens on first paint
+    // when rooms.length is still 0 and never closes.
     const isNewUser = !session.onboarded;
     if (isNewUser && (hasEntryParam || rooms.length === 0)) {
       setShowEntryFlow(true);
     }
-  }, [rooms.length]);
+  }, [ready, rooms.length]);
 
   useEffect(() => {
     const session = getUserSession();

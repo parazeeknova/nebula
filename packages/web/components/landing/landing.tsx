@@ -56,7 +56,7 @@ const features = [
 export const Landing = () => (
   <div className="relative">
     {/* nav */}
-    <header className="border-line/70 supports-[backdrop-filter]:bg-abyss/70 fixed inset-x-0 top-0 z-50 border-b backdrop-blur-md">
+    <header className="border-line/70 supports-backdrop-filter:bg-abyss/70 fixed inset-x-0 top-0 z-50 border-b backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-5">
         <a href="#top" className="flex items-center gap-2.5">
           <img src="/nebula.svg" alt="Neb" className="h-6 w-auto" />
@@ -101,7 +101,7 @@ export const Landing = () => (
           aria-hidden
         />
         <div
-          className="bg-blurple/15 pointer-events-none absolute -top-32 left-1/2 h-72 w-[42rem] max-w-[90vw] -translate-x-1/2 blur-[130px]"
+          className="bg-blurple/15 pointer-events-none absolute -top-32 left-1/2 h-72 w-2xl max-w-[90vw] -translate-x-1/2 blur-[130px]"
           aria-hidden
         />
 
@@ -270,7 +270,7 @@ export const Landing = () => (
               <li key={s.t} className="relative flex gap-5 pb-9 last:pb-0">
                 {i < 3 && (
                   <span
-                    className="bg-line absolute top-11 left-[19px] h-[calc(100%-2.75rem)] w-px"
+                    className="bg-line absolute top-11 left-4.75 h-[calc(100%-2.75rem)] w-px"
                     aria-hidden
                   />
                 )}
@@ -332,7 +332,7 @@ export const Landing = () => (
       {/* ── closing CTA ──────────────────────────────────── */}
       <section className="border-line relative overflow-hidden border-t px-5 py-24 sm:py-28">
         <div
-          className="bg-blurple/15 pointer-events-none absolute top-1/2 left-1/2 h-64 w-[36rem] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 blur-[120px]"
+          className="bg-blurple/15 pointer-events-none absolute top-1/2 left-1/2 h-64 w-xl max-w-[90vw] -translate-x-1/2 -translate-y-1/2 blur-[120px]"
           aria-hidden
         />
         <div className="relative mx-auto max-w-3xl text-center">
