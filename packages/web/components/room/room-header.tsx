@@ -14,6 +14,7 @@ import {
 
 interface Props {
   membersOpen: boolean;
+  mobileMembersOpen?: boolean;
   name: string;
   newThreadArmed: boolean;
   onDelete?: () => void;
@@ -29,6 +30,7 @@ export const RoomHeader = ({
   name,
   topic,
   membersOpen,
+  mobileMembersOpen = false,
   newThreadArmed,
   onToggleMembers,
   onNewThread,
@@ -167,12 +169,16 @@ export const RoomHeader = ({
         <button
           onClick={onToggleMembers}
           aria-label="Toggle members"
-          aria-pressed={membersOpen}
+          aria-pressed={Boolean(mobileMembersOpen || membersOpen)}
           title="Toggle members"
           className={`p-2 transition ${
-            membersOpen
-              ? "bg-blurple-soft text-[#8b9bff]"
+            mobileMembersOpen
+              ? "bg-blurple-soft lg:text-ink-dim text-[#8b9bff] lg:bg-transparent"
               : "hover:text-ink hover:bg-white/5"
+          } ${
+            membersOpen
+              ? "lg:bg-blurple-soft lg:text-[#8b9bff]"
+              : "lg:hover:text-ink lg:hover:bg-white/5"
           }`}
         >
           <PanelIcon />

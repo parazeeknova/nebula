@@ -4,6 +4,13 @@ import type { ComponentType } from "react";
 
 import { BotIcon } from "../icons";
 
+const getStatusDotColor = (isBot: boolean, isOnline: boolean): string => {
+  if (isBot) {
+    return "bg-blurple";
+  }
+  return isOnline ? "bg-mint" : "bg-ink-ghost";
+};
+
 const Avatar = ({
   name,
   color,
@@ -45,9 +52,10 @@ const Avatar = ({
       </span>
       {online !== undefined && (
         <span
-          className={`border-chat absolute -right-0.5 -bottom-0.5 border-[3px] ${
-            online ? "bg-mint" : "bg-ink-ghost"
-          }`}
+          className={`border-chat absolute -right-0.5 -bottom-0.5 border-[3px] ${getStatusDotColor(
+            bot,
+            online
+          )}`}
           style={{ height: size * 0.32, width: size * 0.32 }}
         />
       )}

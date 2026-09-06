@@ -24,12 +24,9 @@ const Section = ({
 
 const presenceDot = (presence: string): string => {
   if (presence === "working") {
-    return "bg-gold animate-pulse";
+    return "bg-blurple animate-pulse";
   }
-  if (presence === "active") {
-    return "bg-mint";
-  }
-  return "bg-ink-ghost";
+  return "bg-blurple";
 };
 
 const AgentCard = ({ agent }: { agent: Agent }) => {
@@ -86,9 +83,11 @@ const AgentCard = ({ agent }: { agent: Agent }) => {
 export const MembersPanel = ({
   agents,
   humans,
+  className = "",
 }: {
   agents: Agent[];
   humans: RoomHuman[];
+  className?: string;
 }) => {
   const online = humans.filter((h) => h.isOnline);
   const activeAgents = agents.filter((a) => a.presence === "working");
@@ -106,7 +105,9 @@ export const MembersPanel = ({
 
   return (
     <aside
-      className="bg-panel flex w-60 shrink-0 flex-col overflow-y-auto border-l border-white/[0.06] px-2 py-3"
+      className={`bg-panel flex shrink-0 flex-col overflow-y-auto px-2 py-3 ${
+        className || "w-60 border-l border-white/[0.06]"
+      }`}
       aria-label="Members and agents"
     >
       {activeAgents.length > 0 && (

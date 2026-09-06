@@ -72,9 +72,15 @@ const PersonRow = () => (
   </div>
 );
 
-export const PeopleSkeleton = () => (
+export const PeopleSkeleton = ({
+  className = "",
+}: {
+  className?: string;
+} = {}) => (
   <div
-    className="bg-panel flex h-full w-full shrink-0 flex-col overflow-hidden border-l border-white/[0.06] px-2 py-3 sm:w-60"
+    className={`bg-panel flex h-full shrink-0 flex-col overflow-hidden px-2 py-3 ${
+      className || "w-full border-l border-white/[0.06] sm:w-60"
+    }`}
     role="status"
     aria-busy="true"
     aria-label="Loading members"

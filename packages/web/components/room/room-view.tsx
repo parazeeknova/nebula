@@ -16,7 +16,9 @@ import {
   useTypingNotifier,
   useVoiceNotifier,
 } from "@/lib/live";
+import type { Agent, RoomHuman } from "@/lib/room-types";
 
+import { XIcon } from "../icons";
 import { Composer } from "./composer";
 import { DeleteRoomModal } from "./delete-room-modal";
 import { MembersPanel } from "./members-panel";
@@ -30,6 +32,136 @@ import { ThreadPane } from "./thread-pane";
 const MIN_THREAD_WIDTH = 340;
 const MIN_MAINFRAME_WIDTH = 380;
 const DEFAULT_THREAD_WIDTH = 420;
+
+const BusyNoticeBanner = ({
+  notice,
+  onOpenThread,
+  onDismiss,
+}: {
+  notice: { message: string; threadId?: bigint } | null;
+  onOpenThread: (threadId: bigint) => void;
+  onDismiss: () => void;
+}) => {
+  if (!notice) {
+    return null;
+  }
+  return (
+    <div className="border-gold/30 bg-gold/10 text-gold mx-4 mb-2 flex items-center justify-between border px-3 py-2 text-[12.5px]">
+      <div className="flex items-center gap-2">
+        <span aria-hidden>⚠️</span>
+        <span>{notice.message}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        {notice.threadId ? (
+          <button
+            onClick={() => {
+              if (notice.threadId) {
+                onOpenThread(notice.threadId);
+              }
+            }}
+            className="cursor-pointer font-semibold underline hover:text-white"
+          >
+            Open thread →
+          </button>
+        ) : null}
+        <button
+          onClick={onDismiss}
+          className="text-gold/60 hover:text-gold cursor-pointer text-xs"
+          aria-label="Dismiss notice"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const MobileMembersDrawer = ({
+  open,
+  onClose,
+  shown,
+  agents,
+  humans,
+}: {
+  open: boolean;
+  onClose: () => void;
+  shown: boolean;
+  agents: Agent[];
+  humans: RoomHuman[];
+}) => {
+  if (!open) {
+    return null;
+  }
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Members and agents"
+        className="bg-panel-2 shadow-pop absolute inset-y-0 right-0 flex h-full w-72 max-w-[85vw] flex-col border-l border-white/10"
+      >
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] px-4 backdrop-blur">
+          <span className="font-display text-[14px] font-bold text-white">
+            Members & Agents
+          </span>
+          <button
+            onClick={onClose}
+            className="text-ink-dim hover:text-ink p-1.5 transition hover:bg-white/5"
+            aria-label="Close members panel"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {shown ? (
+            <MembersPanel
+              agents={agents}
+              humans={humans}
+              className="h-full w-full border-l-0"
+            />
+          ) : (
+            <PeopleSkeleton className="h-full w-full border-l-0" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DesktopMembersSidebar = ({
+  open,
+  activeThreadId,
+  shown,
+  agents,
+  humans,
+}: {
+  open: boolean;
+  activeThreadId: bigint | null;
+  shown: boolean;
+  agents: Agent[];
+  humans: RoomHuman[];
+}) => {
+  if (!open) {
+    return null;
+  }
+  return (
+    <div
+      className={`${
+        activeThreadId === null ? "hidden lg:flex" : "hidden xl:flex"
+      } h-full shrink-0`}
+    >
+      {shown ? (
+        <MembersPanel agents={agents} humans={humans} />
+      ) : (
+        <PeopleSkeleton />
+      )}
+    </div>
+  );
+};
 
 export const RoomView = ({
   roomId,
@@ -60,9 +192,35 @@ export const RoomView = ({
 
   const [activeThreadId, setActiveThreadId] = useState<bigint | null>(null);
   const [membersOpen, setMembersOpen] = useState(true);
+  const [mobileMembersOpen, setMobileMembersOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [fallback, setFallback] = useState(false);
+
+  useEffect(() => {
+    setMobileMembersOpen(false);
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!mobileMembersOpen) {
+      return;
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileMembersOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileMembersOpen]);
+
+  const handleToggleMembers = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setMobileMembersOpen((v) => !v);
+    } else {
+      setMembersOpen((v) => !v);
+    }
+  };
 
   const [threadWidth, setThreadWidth] = useState<number>(() => {
     if (typeof window !== "undefined") {
@@ -215,13 +373,14 @@ export const RoomView = ({
       ref={containerRef}
       className="relative flex h-full min-h-0 w-full overflow-hidden"
     >
-      <div className="flex min-w-[380px] flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden md:min-w-[380px]">
         <RoomHeader
           name={room.name}
           topic={room.topic}
           membersOpen={membersOpen}
+          mobileMembersOpen={mobileMembersOpen}
           newThreadArmed={newThreadArmed}
-          onToggleMembers={() => setMembersOpen((v) => !v)}
+          onToggleMembers={handleToggleMembers}
           onNewThread={armNewThread}
           onShare={() => setShareOpen(true)}
           onOpenNav={onOpenNav}
@@ -241,40 +400,20 @@ export const RoomView = ({
             roomName={room.name}
             threadSummaries={data.threadSummaries}
             firstUnreadId={data.firstUnreadId}
-            onOpenThread={(id) => setActiveThreadId(id)}
+            onOpenThread={(id) => {
+              setActiveThreadId(id);
+              setMobileMembersOpen(false);
+            }}
           />
         ) : (
           <ChatSkeleton roomName={room.name} />
         )}
 
-        {busyNotice && (
-          <div className="border-gold/30 bg-gold/10 text-gold mx-4 mb-2 flex items-center justify-between border px-3 py-2 text-[12.5px]">
-            <div className="flex items-center gap-2">
-              <span aria-hidden>⚠️</span>
-              <span>{busyNotice.message}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              {busyNotice.threadId ? (
-                <button
-                  onClick={() => {
-                    setActiveThreadId(busyNotice.threadId ?? null);
-                    clearBusyNotice();
-                  }}
-                  className="cursor-pointer font-semibold underline hover:text-white"
-                >
-                  Open thread →
-                </button>
-              ) : null}
-              <button
-                onClick={clearBusyNotice}
-                className="text-gold/60 hover:text-gold cursor-pointer text-xs"
-                aria-label="Dismiss notice"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
+        <BusyNoticeBanner
+          notice={busyNotice}
+          onOpenThread={setActiveThreadId}
+          onDismiss={clearBusyNotice}
+        />
 
         <Composer
           agents={data.agents}
@@ -348,19 +487,21 @@ export const RoomView = ({
         </>
       )}
 
-      {membersOpen && (
-        <div
-          className={`${
-            activeThreadId === null ? "hidden lg:flex" : "hidden xl:flex"
-          } h-full shrink-0`}
-        >
-          {shown ? (
-            <MembersPanel agents={data.agents} humans={data.humans} />
-          ) : (
-            <PeopleSkeleton />
-          )}
-        </div>
-      )}
+      <MobileMembersDrawer
+        open={mobileMembersOpen}
+        onClose={() => setMobileMembersOpen(false)}
+        shown={shown}
+        agents={data.agents}
+        humans={data.humans}
+      />
+
+      <DesktopMembersSidebar
+        open={membersOpen}
+        activeThreadId={activeThreadId}
+        shown={shown}
+        agents={data.agents}
+        humans={data.humans}
+      />
 
       {shareOpen && (
         <ShareModal
