@@ -192,8 +192,6 @@ export const MessageList = ({
         const summary = threadSummaries?.get(String(g.threadId));
         const isGeneral =
           t?.title === "General" || (roomName ? t?.title === roomName : false);
-        const hasThreadActivity =
-          (summary?.replyCount ?? 0) > 0 || Boolean(summary?.streaming);
         return (
           <div key={`${String(g.threadId)}-${gi}`}>
             {!isGeneral && (
@@ -205,9 +203,7 @@ export const MessageList = ({
             )}
             {g.items.map((m, j) => {
               const threadFooter =
-                m.role === 0 &&
-                onOpenThread &&
-                (!isGeneral || hasThreadActivity)
+                m.role === 0 && onOpenThread && !isGeneral
                   ? {
                       lastAgentName: summary?.lastAgentName,
                       onOpen: () => onOpenThread(m.threadId),

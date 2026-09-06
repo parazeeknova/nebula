@@ -822,7 +822,13 @@ export const useRoomData = (
 
   return useMemo(() => {
     const room = roomRows[0] ? toRoom(roomRows[0]) : undefined;
-    const threadRow = pickActiveThread(threadRows);
+    // The General row is room-chat storage, never a visible thread. Only
+    // @mention-created threads surface in the thread UI.
+    const visibleThreadRows = threadRows.filter(
+      (t) =>
+        t.title !== "General" && (room === undefined || t.title !== room.name)
+    );
+    const threadRow = pickActiveThread(visibleThreadRows);
     const thread = threadRow ? toThread(threadRow) : null;
     // Every thread in the room, newest first — the view renders all of
     // them so no conversation can silently disappear.
@@ -1056,10 +1062,15 @@ export const useThreadDetails = (
     }
 
     const toolsByJob = toToolEntries(toolRows);
-    // All tools for this thread (every job in it), oldest first. tool_call
-    // rows only carry job_id, so thread scope is the finest join we have.
-    const threadTools: ToolEntry[] = [...toolsByJob.values()]
-      .flat()
+    // All tools for this thread: join tool_call rows through this thread's
+    // jobs only. tool_call rows carry job_id alone, and toolRows here is the
+    // global table, so without this filter every thread would render every
+    // other thread's tools (e.g. #general showing Researcher/Marketing work).
+    const jobs = jobRows.filter((j) => j.threadId === threadId);
+    const jobIds = new Set(jobs.map((j) => String(j.jobId)));
+    const threadTools: ToolEntry[] = [...toolsByJob.entries()]
+      .filter(([jobKey]) => jobIds.has(jobKey))
+      .flatMap(([, entries]) => entries)
       .toSorted((a, b) => (a.callId < b.callId ? -1 : 1));
 
     const allMessages: ChatMessage[] = messageRows
@@ -1106,7 +1117,7 @@ export const useThreadDetails = (
       (m) => m.role === 0 && m.messageId !== originMessage?.messageId
     );
 
-    const jobs = jobRows.filter((j) => j.threadId === threadId);
+    // (jobs already scoped to this thread above for the tool join.)
 
     // Sub-agents surface only as tool_call rows, so attribute the thread's
     // tools to agents via their tools[] — otherwise orchestrated specialists
@@ -1128,9 +1139,7 @@ export const useThreadDetails = (
             m.authorAgent === agent.agentId &&
             (finalAnswer === undefined || m.messageId !== finalAnswer.messageId)
         );
-        const agentJobs = jobs.filter(
-          (j) => j.taggedAgent === agent.agentId || j.taggedAgent === undefined
-        );
+        const agentJobs = jobs.filter((j) => j.taggedAgent === agent.agentId);
 
         const status = resolveWorkStatus({
           hasMessages: agentMsgs.length > 0,
