@@ -15,12 +15,12 @@ const base = (env: EnvLike): string =>
   env.HONCHO_BASE_URL ?? "https://api.honcho.dev";
 
 const headers = (env: EnvLike): HeadersInit => ({
+  Authorization: `Bearer ${env.HONCHO_API_KEY ?? ""}`,
   "Content-Type": "application/json",
-  "X-API-Key": env.HONCHO_API_KEY ?? "",
 });
 
 const sessionPath = (env: EnvLike, namespace: string): string =>
-  `${base(env)}/v2/workspaces/${env.HONCHO_WORKSPACE_ID ?? "nebula"}/sessions/${namespace}`;
+  `${base(env)}/v3/workspaces/${env.HONCHO_WORKSPACE_ID ?? "nebula"}/sessions/${namespace}`;
 
 const humanPeer = (identity: string): string => `user_${identity}`;
 const agentPeer = (agentId: number): string => `agent_${agentId}`;
@@ -29,26 +29,19 @@ const getOrCreateSession = async (
   env: EnvLike,
   namespace: string
 ): Promise<boolean> => {
-  const res = await fetch(sessionPath(env, namespace), {
-    headers: headers(env),
-    method: "GET",
-  });
+  const res = await fetch(
+    `${base(env)}/v3/workspaces/${env.HONCHO_WORKSPACE_ID ?? "nebula"}/sessions`,
+    {
+      body: JSON.stringify({ id: namespace }),
+      headers: headers(env),
+      method: "POST",
+    }
+  );
   if (res.ok) {
     return true;
   }
-  if (res.status === 404) {
-    const created = await fetch(
-      `${base(env)}/v2/workspaces/${env.HONCHO_WORKSPACE_ID ?? "nebula"}/sessions`,
-      {
-        body: JSON.stringify({ id: namespace }),
-        headers: headers(env),
-        method: "POST",
-      }
-    );
-    return created.ok;
-  }
   throw new Error(
-    `honcho session ${res.status}: ${truncate(await res.text(), 200)}`
+    `honcho getOrCreate session ${res.status}: ${truncate(await res.text(), 200)}`
   );
 };
 
@@ -68,14 +61,13 @@ export const recordMessages = async (
   }
   await getOrCreateSession(env, namespace);
   const existing = new Set<string>();
-  const page = await fetch(
-    `${sessionPath(env, namespace)}/messages?reverse=true&size=100`,
-    {
-      headers: headers(env),
-    }
-  );
-  if (page.ok) {
-    const data = (await page.json()) as {
+  const list = await fetch(`${sessionPath(env, namespace)}/messages/list`, {
+    body: JSON.stringify({ reverse: true, size: 100 }),
+    headers: headers(env),
+    method: "POST",
+  });
+  if (list.ok) {
+    const data = (await list.json()) as {
       items?: { metadata?: { nebula_message_id?: unknown } }[];
     };
     for (const item of data.items ?? []) {
@@ -92,7 +84,7 @@ export const recordMessages = async (
     .map((m) => ({
       content: truncate(m.body, 8000),
       metadata: { nebula_message_id: String(m.messageId) },
-      peerId: m.peerId,
+      peer_id: m.peerId,
     }));
   if (toAdd.length === 0) {
     return;
@@ -111,7 +103,7 @@ export const recordMessages = async (
 
 interface HonchoContext {
   summary?: { content?: string };
-  messages?: { peerId: string; content: string }[];
+  messages?: { content: string; peer_id: string }[];
   peerRepresentation?: string;
 }
 
@@ -126,21 +118,19 @@ export const pullRoomMemory = async (
     return { context: "", hasHistory: false };
   }
   await getOrCreateSession(env, namespace);
-  const res = await fetch(`${sessionPath(env, namespace)}/context`, {
-    body: JSON.stringify({
-      peerPerspective: agentPeer(assistantAgentId),
-      peerTarget: humanPeer(creatorIdentity),
-      representationOptions: {
-        maxConclusions: 10,
-        searchQuery: prompt,
-        searchTopK: 8,
-      },
-      summary: true,
-      tokens: 3000,
-    }),
-    headers: headers(env),
-    method: "POST",
+  const query = new URLSearchParams({
+    max_conclusions: "10",
+    peer_perspective: agentPeer(assistantAgentId),
+    peer_target: humanPeer(creatorIdentity),
+    search_query: prompt,
+    search_top_k: "8",
+    summary: "true",
+    tokens: "3000",
   });
+  const res = await fetch(
+    `${sessionPath(env, namespace)}/context?${query.toString()}`,
+    { headers: headers(env) }
+  );
   if (!res.ok) {
     throw new Error(
       `honcho context ${res.status}: ${truncate(await res.text(), 200)}`
@@ -152,7 +142,7 @@ export const pullRoomMemory = async (
     lines.push(`Summary: ${ctx.summary.content}`);
   }
   for (const m of ctx.messages ?? []) {
-    lines.push(`${m.peerId}: ${m.content}`);
+    lines.push(`${m.peer_id}: ${m.content}`);
   }
   const context = lines.join("\n");
   return { context, hasHistory: context.length > 0 };
