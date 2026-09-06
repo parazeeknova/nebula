@@ -21,6 +21,11 @@ export const config = {
   openaiBaseUrl:
     process.env.OPENAI_PROVIDER_BASE_URL ?? "https://api.openai.com/v1",
   port: Number(process.env.PORT ?? 3002),
+  smtpHost: process.env.SMTP_HOST ?? "smtp.gmail.com",
+  smtpPass: process.env.SMTP_PASS ?? "",
+  smtpPort: Number(process.env.SMTP_PORT ?? 465),
+  smtpSecure: process.env.SMTP_SECURE !== "false",
+  smtpUser: process.env.SMTP_USER ?? "",
   spacetimedbDb: process.env.SPACETIMEDB_DB_NAME ?? "nebula",
   spacetimedbHost: process.env.SPACETIMEDB_HOST ?? "ws://127.0.0.1:3000",
   spacetimedbToken: process.env.SPACETIMEDB_TOKEN ?? "",

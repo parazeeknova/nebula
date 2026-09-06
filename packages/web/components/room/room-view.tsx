@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSpacetimeDB } from "spacetimedb/react";
 
 import {
+  useDeleteRoom,
   useMarkRoomRead,
   useMyProfile,
   useRenameRoom,
@@ -43,6 +45,7 @@ export const RoomView = ({
   const data = useRoomData(roomId, ticks);
   const me = useMyProfile();
   const renameRoom = useRenameRoom();
+  const deleteRoom = useDeleteRoom();
 
   const { startTyping, stopTyping } = useTypingNotifier(
     roomId,
@@ -367,14 +370,19 @@ export const RoomView = ({
         />
       )}
 
-      <DeleteRoomModal
-        isOpen={deleteOpen}
-        roomName={room.name}
-        onClose={() => setDeleteOpen(false)}
-        onConfirm={() => {
-          /* empty */
-        }}
-      />
+      {deleteOpen &&
+        createPortal(
+          <DeleteRoomModal
+            isOpen={true}
+            roomName={room.name}
+            onClose={() => setDeleteOpen(false)}
+            onConfirm={() => {
+              void deleteRoom(room.roomId);
+              setDeleteOpen(false);
+            }}
+          />,
+          document.body
+        )}
     </div>
   );
 };

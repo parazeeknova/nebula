@@ -8,6 +8,7 @@ import type { Room } from "@/lib/room-types";
 import {
   ChevronLeftIcon,
   CompassIcon,
+  FeedbackIcon,
   HashIcon,
   MoreHorizontalIcon,
   PlusIcon,
@@ -16,6 +17,7 @@ import {
   XIcon,
 } from "../icons";
 import { DeleteRoomModal } from "../room/delete-room-modal";
+import { FeedbackModal } from "./feedback-modal";
 
 interface Props {
   rooms: Room[];
@@ -223,6 +225,7 @@ export const Sidebar = ({
 }: Props) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [deletingRoom, setDeletingRoom] = useState<Room | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const filteredRooms = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -384,6 +387,18 @@ export const Sidebar = ({
             </ul>
           </>
         )}
+        {!collapsed && (
+          <div className="mt-4 border-t border-white/6 pt-3">
+            <button
+              type="button"
+              onClick={() => setFeedbackOpen(true)}
+              className="text-ink-dim hover:text-ink flex w-full items-center gap-2 px-2 py-1.5 text-left text-[13px] font-medium transition hover:bg-white/[0.04]"
+            >
+              <FeedbackIcon className="text-ink-ghost h-4 w-4" />
+              <span className="flex-1 truncate">Send feedback</span>
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* me profile card + collapse */}
@@ -477,6 +492,12 @@ export const Sidebar = ({
               onDeleteRoom?.(deletingRoom.roomId);
             }}
           />,
+          document.body
+        )}
+
+      {feedbackOpen &&
+        createPortal(
+          <FeedbackModal isOpen onClose={() => setFeedbackOpen(false)} />,
           document.body
         )}
     </aside>

@@ -1,8 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
-import { prettifyJson } from "@/lib/prettify";
 import type {
   Agent,
   ChatMessage,
@@ -11,7 +8,7 @@ import type {
 } from "@/lib/room-types";
 import { fullText } from "@/lib/room-types";
 
-import { ChevronDownIcon, SparkleIcon } from "../icons";
+import { SparkleIcon } from "../icons";
 import { Avatar } from "./avatar";
 import { MentionText } from "./mention-text";
 import { PrettyBody } from "./pretty-body";
@@ -24,27 +21,7 @@ const agentById = (agents: Agent[], id: bigint | null): Agent | undefined => {
   return agents.find((a) => a.agentId === id);
 };
 
-const TOOL_STYLE: Record<number, string> = {
-  0: "bg-white/5 text-ink-dim ring-white/10",
-  1: "bg-blurple-soft text-[#aab4ff] ring-blurple/40",
-  2: "bg-mint/10 text-mint ring-mint/25",
-  3: "bg-rose/10 text-[#ff8a8d] ring-rose/30",
-};
 const TOOL_LABEL = ["pending", "running", "done", "failed"] as const;
-
-const PrettyPayload = ({ label, raw }: { label: string; raw: string }) => {
-  const pretty = prettifyJson(raw) ?? raw;
-  return (
-    <div className="border border-white/[0.06] bg-black/40">
-      <div className="text-ink-ghost border-b border-white/[0.05] px-2.5 py-1 font-mono text-[9.5px] tracking-wider uppercase">
-        {label}
-      </div>
-      <pre className="overflow-x-auto px-2.5 py-2 font-mono text-[11px] leading-relaxed whitespace-pre text-[#c8cdd6]">
-        {pretty}
-      </pre>
-    </div>
-  );
-};
 
 const UserMessage = ({
   msg,
@@ -176,7 +153,7 @@ const AgentReply = ({
   );
 };
 
-/** A single tool-call step, individually collapsible. */
+/** A single tool-call step, rendered as one quiet line (no raw payload dump). */
 const ToolCallItem = ({
   tool,
   agent,
@@ -184,58 +161,35 @@ const ToolCallItem = ({
   tool: ToolCallInfo;
   agent: Agent | undefined;
 }) => {
-  const [open, setOpen] = useState(false);
   const color = agent?.color ?? "#5865f2";
+  const verb =
+    tool.status === 1 ? "working" : (TOOL_LABEL[tool.status] ?? "done");
 
   return (
-    <div className="bg-panel overflow-hidden border border-white/[0.08]">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left transition hover:bg-white/[0.03]"
-        aria-expanded={open}
-      >
-        <Avatar
-          name={agent?.name ?? tool.tool}
-          color={color}
-          size={20}
-          bot
-          icon={agent?.icon}
-        />
-        <span className="min-w-0 flex-1">
-          <span
-            className={`inline-flex items-center px-1.5 py-0.5 font-mono text-[9.5px] font-semibold ring-1 ${
-              TOOL_STYLE[tool.status] ?? TOOL_STYLE[0]
-            }`}
-          >
-            {tool.status === 1 && (
-              <span className="mr-1 inline-block h-1 w-1 animate-pulse bg-current" />
-            )}
-            {tool.tool} · {TOOL_LABEL[tool.status] ?? "pending"}
+    <div className="flex items-center gap-2 px-2.5 py-1">
+      <Avatar
+        name={agent?.name ?? tool.tool}
+        color={color}
+        size={18}
+        bot
+        icon={agent?.icon}
+      />
+      <span className="text-ink-faint min-w-0 flex-1 truncate text-[12px] italic">
+        {tool.status === 1 ? (
+          <span className="inline-flex items-center gap-2">
+            <span className="inline-block h-1 w-1 animate-pulse bg-current" />
+            {agent ? `${agent.name} is searching…` : "working…"}
           </span>
-          {agent && (
-            <span className="text-ink-ghost ml-2 font-mono text-[10px]">
-              @{agent.handle}
-            </span>
-          )}
-        </span>
-        <ChevronDownIcon
-          className={`text-ink-ghost h-3 w-3 shrink-0 transition-transform duration-200 ${
-            open ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-      {open && (
-        <div className="space-y-1.5 border-t border-white/[0.06] px-2.5 py-2">
-          {tool.input ? <PrettyPayload label="input" raw={tool.input} /> : null}
-          {tool.output ? (
-            <PrettyPayload label="findings" raw={tool.output} />
-          ) : null}
-          {!tool.input && !tool.output && (
-            <p className="text-ink-ghost text-[11px] italic">No details.</p>
-          )}
-        </div>
-      )}
+        ) : (
+          <span className="text-ink-dim">
+            {agent ? `${agent.name} used ` : ""}
+            <span className="font-mono text-[10.5px] not-italic">
+              {tool.tool}
+            </span>{" "}
+            · {verb}
+          </span>
+        )}
+      </span>
     </div>
   );
 };
