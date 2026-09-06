@@ -148,9 +148,10 @@ class Llm {
   }
 
   private endpoints(): { url: string; key: string; model: string }[] {
+    const parsed = parseModelRef(this.model);
     const primary = {
       key: this.env.OPENAI_API_KEY,
-      model: this.model,
+      model: parsed?.model ?? this.model,
       url: this.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
     };
     const out = [primary];
@@ -194,7 +195,9 @@ class Llm {
           body: JSON.stringify({
             messages,
             model: ep.model,
-            ...(tools && tools.length > 0 ? { tools } : {}),
+            ...(tools && tools.length > 0
+              ? { reasoning_effort: "none", tools }
+              : {}),
           }),
           headers: {
             Authorization: `Bearer ${ep.key}`,
@@ -557,7 +560,7 @@ const renderOutput = (route: string, out: Record<string, unknown>): string => {
   }
 };
 
-const JOB_CHUNK = 220;
+const JOB_CHUNK = 2000;
 
 const signalMemoryUsed = async (
   stdb: Stdb,
@@ -799,8 +802,17 @@ export class QueuePoller {
     this.env = env;
   }
 
-  async fetch(): Promise<Response> {
+  async fetch(request: Request): Promise<Response> {
     await this.ensurePolling();
+    const url = new URL(request.url);
+    if (url.pathname === "/process") {
+      try {
+        const result = await processJobs(this.env);
+        return Response.json(result);
+      } catch (error) {
+        return Response.json({ error: errMsg(error) }, { status: 500 });
+      }
+    }
     return Response.json({ mode: "durable-object", ok: true });
   }
 
@@ -822,7 +834,7 @@ export class QueuePoller {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  fetch(request: Request, env: Env): Response | Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/health") {
       return Response.json({ ok: true });
@@ -839,8 +851,11 @@ export default {
       ) {
         return Response.json({ error: "unauthorized" }, { status: 401 });
       }
-      const result = await processJobs(env);
-      return Response.json(result);
+      // Route through the Durable Object so there's exactly one poller and
+      // it never races the DO alarm over the same job.
+      const id = env.QUEUE_POLLER.idFromName("agent-queue");
+      const stub = env.QUEUE_POLLER.get(id);
+      return stub.fetch("https://nebula-agent-worker/process");
     }
     return Response.json({ error: "not found" }, { status: 404 });
   },
