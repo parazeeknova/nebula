@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
-import { getUserSession, saveUserSession } from "@/lib/session";
+import { getUserSession, saveUserSession, validateEmail } from "@/lib/session";
 
-import { XIcon } from "../icons";
+import { BotIcon, CompassIcon, SparkleIcon, XIcon } from "../icons";
 
 interface Props {
   isOpen: boolean;
@@ -14,6 +14,21 @@ interface Props {
   onClose?: () => void;
   onDone: (name: string) => void;
 }
+
+const ABOUT = [
+  {
+    icon: BotIcon,
+    text: "One shared AI workspace per team — @ an agent and it works right in the room.",
+  },
+  {
+    icon: SparkleIcon,
+    text: "Rooms remember every thread, so knowledge compounds instead of evaporating.",
+  },
+  {
+    icon: CompassIcon,
+    text: "Questions overlap? Neb merges parallel answers into one synthesized reply.",
+  },
+];
 
 export const EntryFlowModal = ({
   isOpen,
@@ -24,12 +39,17 @@ export const EntryFlowModal = ({
 }: Props) => {
   const [session, setSession] = useState(() => getUserSession());
   const [name, setName] = useState(session.name || initialName);
+  const [email, setEmail] = useState(session.email);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [created, setCreated] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       const cur = getUserSession();
       setSession(cur);
       setName(cur.name || initialName);
+      setEmail(cur.email);
+      setCreated(false);
     }
   }, [isOpen, initialName]);
 
@@ -40,17 +60,25 @@ export const EntryFlowModal = ({
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const cleanName = name.trim();
-    if (!cleanName) {
+    const cleanEmail = email.trim();
+    const error = validateEmail(cleanEmail);
+    setEmailError(error);
+    if (!cleanName || error) {
       return;
     }
-    saveUserSession(cleanName, "");
+    saveUserSession(cleanName, cleanEmail);
     setSession({
-      email: "",
+      email: cleanEmail,
       hasSession: true,
       name: cleanName,
       onboarded: true,
     });
-    onDone(cleanName);
+    setCreated(true);
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setEmailError(null);
   };
 
   return (
@@ -85,46 +113,113 @@ export const EntryFlowModal = ({
         </div>
 
         <div className="mt-6">
-          <h2
-            id="entry-flow-title"
-            className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl"
-          >
-            Welcome to Nebula
-          </h2>
-          <p className="text-ink-dim mt-1.5 text-[13.5px] leading-relaxed">
-            What should we call you?
-          </p>
-
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="entry-name"
-                className="text-ink-dim block text-[12.5px] font-semibold"
+          {created ? (
+            <>
+              <h2
+                id="entry-flow-title"
+                className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl"
               >
-                Your Name <span className="text-blurple">*</span>
-              </label>
-              <input
-                id="entry-name"
-                type="text"
-                required
-                autoFocus
-                autoComplete="name"
-                placeholder="e.g. Satoshi Nakamoto"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="focus:border-blurple focus:ring-blurple placeholder:text-ink-ghost w-full border border-white/10 bg-[#12151c] px-3.5 py-2.5 text-[14px] text-white transition outline-none focus:ring-1"
-              />
-            </div>
+                Welcome to Nebula, {name.trim().split(" ")[0] || "friend"} 🎉
+              </h2>
+              <p className="text-ink-dim mt-1.5 text-[13.5px] leading-relaxed">
+                You're in. Here's what Nebula can do for your team:
+              </p>
 
-            <button
-              type="submit"
-              disabled={!name.trim()}
-              className="bg-blurple hover:bg-blurple-deep mt-2 flex w-full cursor-pointer items-center justify-center gap-2 px-4 py-2.5 text-[14px] font-bold text-white shadow-[0_4px_14px_rgba(88,101,242,0.4)] transition disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span>Get started</span>
-              <span aria-hidden>→</span>
-            </button>
-          </form>
+              <ul className="mt-5 space-y-3">
+                {ABOUT.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.text} className="flex items-start gap-3">
+                      <span className="bg-blurple-soft text-blurple mt-0.5 grid h-7 w-7 shrink-0 place-items-center">
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="text-ink-dim text-[13px] leading-relaxed">
+                        {item.text}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <button
+                onClick={() => onDone(name.trim())}
+                className="bg-blurple hover:bg-blurple-deep mt-6 flex w-full cursor-pointer items-center justify-center gap-2 px-4 py-2.5 text-[14px] font-bold text-white shadow-[0_4px_14px_rgba(88,101,242,0.4)] transition"
+              >
+                <span>Start exploring</span>
+                <span aria-hidden>→</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <h2
+                id="entry-flow-title"
+                className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl"
+              >
+                Welcome to Nebula
+              </h2>
+              <p className="text-ink-dim mt-1.5 text-[13.5px] leading-relaxed">
+                Create your account to collaborate with autonomous agents and
+                teammates in real-time.
+              </p>
+
+              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="entry-name"
+                    className="text-ink-dim block text-[12.5px] font-semibold"
+                  >
+                    Your Name <span className="text-blurple">*</span>
+                  </label>
+                  <input
+                    id="entry-name"
+                    type="text"
+                    required
+                    autoFocus
+                    autoComplete="name"
+                    placeholder="e.g. Satoshi Nakamoto"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="focus:border-blurple focus:ring-blurple placeholder:text-ink-ghost w-full border border-white/10 bg-[#12151c] px-3.5 py-2.5 text-[14px] text-white transition outline-none focus:ring-1"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="entry-email"
+                    className="text-ink-dim block text-[12.5px] font-semibold"
+                  >
+                    Email Address <span className="text-blurple">*</span>
+                  </label>
+                  <input
+                    id="entry-email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="e.g. satoshi@example.com"
+                    value={email}
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    className={`focus:border-blurple focus:ring-blurple placeholder:text-ink-ghost w-full border border-white/10 bg-[#12151c] px-3.5 py-2.5 text-[14px] text-white transition outline-none focus:ring-1 ${
+                      emailError ? "border-crimson" : ""
+                    }`}
+                  />
+                  {emailError && (
+                    <p className="text-crimson text-[11.5px] font-medium">
+                      {emailError}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={!name.trim() || !email.trim()}
+                  className="bg-blurple hover:bg-blurple-deep mt-2 flex w-full cursor-pointer items-center justify-center gap-2 px-4 py-2.5 text-[14px] font-bold text-white shadow-[0_4px_14px_rgba(88,101,242,0.4)] transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span>Create account</span>
+                  <span aria-hidden>→</span>
+                </button>
+              </form>
+            </>
+          )}
         </div>
       </div>
     </div>
