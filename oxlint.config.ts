@@ -15,14 +15,8 @@ export default defineConfig({
     {
       files: ["packages/spacetimedb/src/index.ts"],
       rules: {
-        // New columns must be APPENDED at the end of a table for SpacetimeDB
-        // migrations to be additive, which conflicts with alphabetical keys.
         "sort-keys": "off",
-        // Index `.filter()` returns an iterator, so spreading into an array
-        // before using `.length`/indexing/`.map()` is required, not useless.
         "unicorn/no-useless-spread": "off",
-        // SpacetimeDB PK/index accessors use `.find()` for row lookup —
-        // not Array.prototype.find, so the unicorn rule is a false positive.
         "unicorn/prefer-array-some": "off",
       },
     },
@@ -34,22 +28,19 @@ export default defineConfig({
         "packages/web/src/server/seed-agents.ts",
       ],
       rules: {
-        // SpacetimeDB connect/subscription builders are callback-based;
-        // wrapping them in a Promise executor is the intended pattern.
         "promise/avoid-new": "off",
         "promise/prefer-await-to-callbacks": "off",
       },
     },
     {
       files: ["packages/worker-cf/src/**/*.ts"],
+      // oxlint-disable-next-line sort-keys
       rules: {
-        // Job claiming and chunked answer streaming are order-dependent:
-        // parallelizing them would race claims and shuffle message chunks.
         "no-await-in-loop": "off",
-        // Same callback-based builder pattern as the node worker.
         "promise/avoid-new": "off",
         "promise/prefer-await-to-callbacks": "off",
         "promise/prefer-await-to-then": "off",
+        "max-classes-per-file": "off",
       },
     },
   ],

@@ -20,6 +20,7 @@ export interface Env {
   HONCHO_BASE_URL?: string;
   HONCHO_WORKSPACE_ID?: string;
   CRON_SECRET?: string;
+  QUEUE_POLLER: DurableObjectNamespace;
 }
 
 interface AiJobRow {
@@ -57,7 +58,7 @@ interface MessageRow {
   thread_id: string | number;
 }
 
-const errMsg = (error: unknown): string =>
+export const errMsg = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 const extractJson = (raw: string): Record<string, unknown> => {
@@ -742,7 +743,7 @@ const processOneJob = async (
   return messageId;
 };
 
-const processJobs = async (env: Env): Promise<ProcessResult> => {
+export const processJobs = async (env: Env): Promise<ProcessResult> => {
   const stdb = new Stdb(
     env.SPACETIMEDB_HOST,
     env.SPACETIMEDB_DB,
@@ -788,11 +789,48 @@ const processJobs = async (env: Env): Promise<ProcessResult> => {
   return { errors, failed, processed };
 };
 
+export class QueuePoller {
+  private state: DurableObjectState;
+  private env: Env;
+  private pollDelayMs = 1200;
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async fetch(): Promise<Response> {
+    await this.ensurePolling();
+    return Response.json({ mode: "durable-object", ok: true });
+  }
+
+  async alarm(): Promise<void> {
+    try {
+      await processJobs(this.env);
+    } catch (error) {
+      console.error(`poller tick failed: ${errMsg(error)}`);
+    }
+    await this.state.storage.setAlarm(Date.now() + this.pollDelayMs);
+  }
+
+  private async ensurePolling(): Promise<void> {
+    const current = await this.state.storage.getAlarm();
+    if (current === null) {
+      await this.state.storage.setAlarm(Date.now() + this.pollDelayMs);
+    }
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/health") {
       return Response.json({ ok: true });
+    }
+    if (url.pathname === "/start") {
+      const id = env.QUEUE_POLLER.idFromName("agent-queue");
+      const stub = env.QUEUE_POLLER.get(id);
+      return stub.fetch("https://nebula-agent-worker/start");
     }
     if (url.pathname === "/process") {
       if (
@@ -805,17 +843,5 @@ export default {
       return Response.json(result);
     }
     return Response.json({ error: "not found" }, { status: 404 });
-  },
-
-  async scheduled(
-    _controller: ScheduledController,
-    env: Env,
-    _ctx: ExecutionContext
-  ): Promise<void> {
-    try {
-      await processJobs(env);
-    } catch (error) {
-      console.error(`cron tick failed: ${errMsg(error)}`);
-    }
   },
 };

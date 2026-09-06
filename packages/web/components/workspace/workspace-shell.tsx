@@ -7,7 +7,6 @@ import {
   useCreateRoom,
   useDeleteRoom,
   useJoinByLink,
-  useJoinRoom,
   useLiveRooms,
   useMyProfile,
   usePresenceCounts,
@@ -60,7 +59,6 @@ export const WorkspaceShell = () => {
   const pendingSelect = useRef(false);
 
   const [showEntryFlow, setShowEntryFlow] = useState(false);
-  const joinRoom = useJoinRoom();
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -97,43 +95,6 @@ export const WorkspaceShell = () => {
       }
     },
     [me]
-  );
-
-  const handleEntryCreateRoom = useCallback(() => {
-    if (!workspace) {
-      return;
-    }
-    pendingSelect.current = true;
-    createRoom(workspace.workspaceId, `Room ${rooms.length + 1}`);
-    setShowEntryFlow(false);
-    localStorage.setItem("nebula_onboarded", "true");
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("entry");
-      window.history.replaceState({}, "", url.pathname + (url.search || ""));
-    }
-  }, [workspace, rooms.length, createRoom]);
-
-  const handleEntryJoinRoom = useCallback(
-    async (roomId: bigint): Promise<boolean> => {
-      const ok = await joinRoom(roomId);
-      if (!ok) {
-        return false;
-      }
-      setOpenRoomIds((prev) =>
-        prev.includes(roomId) ? prev : [...prev, roomId]
-      );
-      setActiveRoomId(roomId);
-      setShowEntryFlow(false);
-      localStorage.setItem("nebula_onboarded", "true");
-      if (typeof window !== "undefined") {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("entry");
-        window.history.replaceState({}, "", url.pathname + (url.search || ""));
-      }
-      return true;
-    },
-    [joinRoom]
   );
 
   useEffect(() => {
@@ -316,9 +277,19 @@ export const WorkspaceShell = () => {
             ? ""
             : me.displayName
         }
-        onSaveProfile={handleSaveProfile}
-        onCreateRoom={handleEntryCreateRoom}
-        onJoinRoom={handleEntryJoinRoom}
+        onDone={(name) => {
+          handleSaveProfile(name, "");
+          setShowEntryFlow(false);
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("entry");
+            window.history.replaceState(
+              {},
+              "",
+              url.pathname + (url.search || "")
+            );
+          }
+        }}
       />
     </div>
   );

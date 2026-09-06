@@ -3,9 +3,20 @@
   "name": "nebula-agent-worker",
   "main": "src/worker.ts",
   "compatibility_date": "2026-09-01",
-  "triggers": {
-    "crons": ["*/2 * * * *"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "QUEUE_POLLER",
+        "class_name": "QueuePoller",
+      },
+    ],
   },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["QueuePoller"],
+    },
+  ],
   "observability": {
     "enabled": true,
   },
