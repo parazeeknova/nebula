@@ -759,7 +759,6 @@ export const archive_room = spacetimedb.reducer(
   { room_id: t.u64() },
   (ctx, { room_id }) => {
     const r = getRoom(ctx, room_id);
-    requireRoomMember(ctx, room_id);
     ctx.db.room.room_id.update({ ...r, status: 1 });
   }
 );
